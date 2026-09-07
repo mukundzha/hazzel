@@ -848,6 +848,11 @@ def render_block(
                 render_list_item(line)
             )
 
+        if any(len(item.plain) > 80 for item in items):
+            return Text(
+                "\n\n"
+            ).join(items)
+
         return Text(
             "\n"
         ).join(items)

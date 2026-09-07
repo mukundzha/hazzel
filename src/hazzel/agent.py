@@ -29,6 +29,7 @@ Scope: respect user limits strictly. Do ONLY what was asked — nothing extra, n
 Prohibited unless explicitly requested: editing files the user didn't mention, installing/uninstalling packages, running commands, reformatting or refactoring unrelated code, creating docs/tests.
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
+In your responses add proper spacing and formatting
 Tools: you have EXACTLY these 6 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
@@ -37,7 +38,7 @@ MAX_ITERATIONS = 114
 HISTORY_TOKEN_BUDGET = 2400
 
 # Max assistant reply kept between turns; longer replies are compacted.
-HISTORY_REPLY_CHARS = 1000
+HISTORY_REPLY_CHARS = 1500
 
 # Tool results larger than this are distilled before being sent back to the model.
 MAX_TOOL_RESULT_CHARS = 5000
