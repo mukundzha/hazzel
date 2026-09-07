@@ -11,7 +11,7 @@ It stays where the work happens — your terminal, your project, your rules — 
 Just you, your terminal, and an agent that knows its place.
 
 ```text
-Hazzel 0.1.0 ~/hazzel
+Hazzel 0.1.1 ~/hazzel
 
 ❯ fix the bug in agent.py
 
@@ -158,7 +158,7 @@ File writes/edits/`rm` are undoable. Nothing leaves the project root without you
 
 ## Status
 
-`0.1.0` — early, deliberate, reliable foundation. Not big, on purpose.
+`0.1.1` — early, deliberate, reliable foundation. Not big, on purpose.
 
 Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering.
 

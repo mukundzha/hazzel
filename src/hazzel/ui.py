@@ -50,9 +50,14 @@ def _rule_ansi():
 
 
 def _show_header(display_name, project_root):
+    try:
+        from importlib.metadata import version as _pkg_version
+        _ver = _pkg_version("hazzel")
+    except Exception:
+        _ver = "0.1.0"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
-    title.append(" 0.1.0", style=f"bold {USER_COLOR}")
+    title.append(f" {_ver}", style=f"bold {USER_COLOR}")
     console.print(title)
     path = Text()
     path.append(_short_path(project_root), style=DIM_COLOR)

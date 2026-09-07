@@ -40,7 +40,15 @@ def handle_model_command():
     ui.show_model_selected(selected["display_name"], selected.get("provider_display", selected["provider"]))
 
 
-VERSION = "0.1.0"
+def _version():
+    try:
+        from importlib.metadata import version
+        return version("hazzel")
+    except Exception:
+        return "0.1.0"
+
+
+VERSION = _version()
 
 
 def main(argv=None):
@@ -56,6 +64,9 @@ def main(argv=None):
         ui.show_error(f"Unknown option: {args[0]}. Try --help.")
         return
     ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
+    if not config.has_any_key():
+        console.print("  No API key yet — run /model to add one (takes ~10s).", style="dim")
+        console.print()
     while True:
         try:
             user_input = ui.get_input(messages)
