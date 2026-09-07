@@ -37,12 +37,18 @@ The philosophy:
 ## Install
 
 ```bash
+pip install hazzel
+```
+
+Requirements: Python 3.10+, a terminal, and one API key.
+
+From source:
+
+```bash
 git clone https://github.com/mukundzha/hazzel.git
 cd hazzel
 pip install -e .
 ```
-
-Requirements: Python 3.10+, a terminal, and one API key.
 
 ## Run
 
@@ -50,8 +56,10 @@ Start Hazzel from the project you want it to work on:
 
 ```bash
 cd my-project
-python -m hazzel
+hazzel
 ```
+
+(`python -m hazzel` works too.)
 
 That directory becomes the project root. File tools cannot escape it — `../another-project` is rejected.
 
