@@ -320,3 +320,52 @@ def switch_branch(name: str) -> tuple[bool, str]:
         return False, "Working tree has changes — commit or stash first, then switch."
     ok, out = _run_git(["checkout", name])
     return (True, f"Switched to '{name}'.") if ok else (False, out)
+
+
+def push() -> tuple[bool, str]:
+    err = _require_repo()
+    if err:
+        return False, err
+    branch = branch_current()
+    if not branch:
+        return False, "Detached HEAD — checkout a branch first."
+    ok, upstream = _run_git(["rev-parse", "--abbrev-ref", "@{u}"])
+    if ok and upstream and upstream != "(clean)":
+        ok, out = _run_git(["push"], timeout=60)
+    else:
+        ok, out = _run_git(["push", "-u", "origin", branch], timeout=60)
+    if not ok:
+        return False, out
+    return True, _summarize_push(out, branch)
+
+
+def _summarize_push(out: str, branch: str) -> str:
+    for line in out.splitlines():
+        low = line.strip().lower()
+        if "everything up-to-date" in low or "up to date" in low:
+            return f"{branch} is already up to date."
+    return f"Pushed {branch}."
+
+
+def pull() -> tuple[bool, str]:
+    err = _require_repo()
+    if err:
+        return False, err
+    ok, dirty = _run_git(["status", "--porcelain=v1"])
+    if not ok:
+        return False, dirty
+    if dirty.strip() and dirty.strip() != "(clean)":
+        return False, "Working tree has changes — commit or stash first, then pull."
+    ok, out = _run_git(["pull"], timeout=60)
+    if not ok:
+        return False, out
+    if "already up to date" in out.lower():
+        return True, "Already up to date."
+    return True, out.splitlines()[0] if out else "Pulled."
+
+
+def sync() -> tuple[bool, str]:
+    ok, out = pull()
+    if not ok:
+        return False, out
+    return push()

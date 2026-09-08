@@ -160,6 +160,18 @@ def main(argv=None):
                 continue
             ui.show_git_log(out)
             continue
+        if low_in in ("/push", "push"):
+            from hazzel.tools.git_branch import git_branch as _gb
+            ui.show_git_commit(_gb("push"))
+            continue
+        if low_in in ("/pull", "pull"):
+            from hazzel.tools.git_branch import git_branch as _gb
+            ui.show_git_commit(_gb("pull"))
+            continue
+        if low_in in ("/sync", "sync"):
+            from hazzel.tools.git_branch import git_branch as _gb
+            ui.show_git_commit(_gb("sync"))
+            continue
         parts_prove = user_input.strip().lower().split()
         if parts_prove and parts_prove[0] == "/prove":
             arg = parts_prove[1] if len(parts_prove) > 1 else ""

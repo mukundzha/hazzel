@@ -29,4 +29,20 @@ def git_branch(action="current", name=""):
             return "Branch cancelled by user"
         ok, out = git.switch_branch(name)
         return out
-    return "Tool error: unknown branch action. Use current, list, log, create, switch."
+    if action == "push":
+        branch = git.branch_current() or "current branch"
+        if not ui.confirm(f"Push '{branch}' to remote?"):
+            return "Branch cancelled by user"
+        ok, out = git.push()
+        return out
+    if action == "pull":
+        if not ui.confirm("Pull remote changes into this branch?"):
+            return "Branch cancelled by user"
+        ok, out = git.pull()
+        return out
+    if action == "sync":
+        if not ui.confirm("Pull remote changes, then push?"):
+            return "Branch cancelled by user"
+        ok, out = git.sync()
+        return out
+    return "Tool error: unknown branch action. Use current, list, log, create, switch, push, pull, sync."

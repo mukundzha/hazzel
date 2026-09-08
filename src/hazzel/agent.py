@@ -128,7 +128,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "git_branch",
-            "description": "Inspect or switch branches: current, list, log, create, switch. Create/switch ask approval.",
+            "description": "Branches + sync: current, list, log, create, switch, push, pull, sync. Writes ask approval. Never use --force.",
             "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "name": {"type": "string"}}},
         },
     },

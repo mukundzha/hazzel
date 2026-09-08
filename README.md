@@ -95,6 +95,9 @@ Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attache
 /diff     — changed files, open any file's full diff
 /commit   — suggest a message from your diff, y/e/n
 /branch   — list / create / switch branches
+/push     — push branch to remote (asks first)
+/pull     — pull remote changes (asks first)
+/sync     — pull then push (asks first)
 /log      — recent commits
 /help     — shortcuts + commands
 /clear    — reset conversation + usage
