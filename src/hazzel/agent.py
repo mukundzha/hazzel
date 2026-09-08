@@ -677,9 +677,15 @@ def _run_prove(trace, response_content, task_messages):
         if harness is None:
             return None
     detail = f"prove {' '.join(files)}".strip()
-    kind = "repo test suite" if harness else "Ephemeral smoke check in /tmp (happy path only)"
+    if harness:
+        cmd = list(harness)
+        if cmd and os.path.basename(str(cmd[0])).startswith("python"):
+            cmd = cmd[1:]
+        action = f"{' '.join(cmd)}  ·  repo suite"
+    else:
+        action = "smoke script → /tmp  ·  happy path only"
     try:
-        if not ui.confirm(f"Hazzel wants to prove: {detail}\n  {kind}.\nProve this?"):
+        if not ui.confirm_prove(files, action):
             return None
     except Exception:
         return None

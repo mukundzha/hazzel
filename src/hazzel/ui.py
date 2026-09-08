@@ -747,6 +747,31 @@ def confirm(prompt):
     return clean == "y"
 
 
+def confirm_prove(files, action):
+    was_active = _pause_loader()
+    try:
+        console.print()
+        head = Text()
+        head.append("  ◈ Prove", style="bold white")
+        head.append(f"  ·  {action}", style=DIM_COLOR)
+        console.print(head)
+        for f in (files or [])[:5]:
+            row = Text()
+            row.append("  ❯ ", style=f"bold {HAZZEL_COLOR}")
+            row.append(str(f), style="white")
+            console.print(row)
+        extra = len(files or []) - 5
+        if extra > 0:
+            console.print(Text(f"  …{extra} more", style=DIM_COLOR))
+        answer = input("  Run? [y/N]: ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    finally:
+        _resume_loader(was_active)
+    clean = _ANSI_RE.sub("", answer or "").strip().lower()
+    return clean in ("y", "yes")
+
+
 def show_diff(diff):
     was_active = _pause_loader()
     try:

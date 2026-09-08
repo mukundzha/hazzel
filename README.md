@@ -108,7 +108,7 @@ Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attache
 /exit     — leave
 ```
 
-Prove mode is optional and off initially. Turn it on with `/prove on`: after each edit Hazzel asks once (`Prove this?`), then either writes a happy-path smoke script to `/tmp` (Python changes, imports just work) or runs your repo's suite (`npm test`, `cargo test`, `go test`, `pytest`) for other files — and reports `prove … — passed/failed`. Nothing is written into your project.
+Prove mode is optional and off initially. Turn it on with `/prove on`: after each edit Hazzel shows what it will run and asks once (`Run?`), then either writes a happy-path smoke script to `/tmp` (Python changes, imports just work) or runs your repo's suite (`npm test`, `cargo test`, `go test`, `pytest`) for other files — and reports `prove … — passed/failed`. Nothing is written into your project.
 
 Commands ask first:
 
