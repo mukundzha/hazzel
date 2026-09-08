@@ -34,7 +34,7 @@ BULLET_STYLE = "dim"
 BULLET_MARKER_STYLE = "bold #ffb6c1"
 BLOCKQUOTE_STYLE = "dim italic"
 
-TABLE_PADDING = (0, 2)
+TABLE_PADDING = (0, 1)
 
 LEAD_SEPARATORS = (" — ", " – ", " - ", ": ")
 
@@ -326,18 +326,31 @@ def render_table(
         header_style="bold #ffb6c1",
         border_style="dim",
         box=box.ROUNDED,
-        show_lines=False,
+        show_lines=True,
+        show_edge=True,
         expand=False,
         padding=TABLE_PADDING,
+        pad_edge=False,
     )
 
     column_count = len(headers)
 
-    for header in headers:
-        table.add_column(
-            str(header),
-            overflow="fold",
-        )
+    for idx, header in enumerate(headers):
+        if idx == 0:
+            table.add_column(
+                str(header),
+                overflow="fold",
+                no_wrap=False,
+                max_width=32,
+                style="bold",
+            )
+        else:
+            table.add_column(
+                str(header),
+                overflow="fold",
+                no_wrap=False,
+                min_width=20,
+            )
 
     for row in rows:
 
@@ -795,9 +808,10 @@ def render_block(
 
     # Paragraph
     if kind == "paragraph":
-        return render_inline(
-            str(block.content)
-        )
+        text = re.sub(r"[ \t]+", " ", str(block.content).replace("\n", " ")).strip()
+        result = render_inline(text)
+        result.justify = "left"
+        return result
 
     # Heading
     if kind == "heading":
@@ -847,11 +861,6 @@ def render_block(
             items.append(
                 render_list_item(line)
             )
-
-        if any(len(item.plain) > 80 for item in items):
-            return Text(
-                "\n\n"
-            ).join(items)
 
         return Text(
             "\n"
@@ -935,14 +944,15 @@ def _group_blocks(
     """
     Add controlled spacing between blocks.
 
-    Dense by default: no blanks between text blocks. A blank is kept
-    only above code, tables, and rules so they stay scannable.
+    One blank line between every top-level block so headings,
+    paragraphs, lists, tables and code stay scannable and never
+    run into each other.
     """
 
     group = []
 
     for kind, renderable in rendered:
-        if group and kind in ("code", "table", "rule"):
+        if group:
             group.append(
                 Text("")
             )
@@ -962,9 +972,14 @@ def print_response(
     for renderable in format_response(
         message
     ):
-        console.print(
-            Padding(
-                renderable,
-                (0, 0, 0, 2),
+        inner = renderable.get_renderable() if isinstance(renderable, Padding) else renderable
+        if isinstance(inner, (Table, Panel)):
+            console.print(renderable, soft_wrap=False)
+        else:
+            console.print(
+                Padding(
+                    renderable,
+                    (0, 0, 0, 2),
+                ),
+                soft_wrap=False,
             )
-        )

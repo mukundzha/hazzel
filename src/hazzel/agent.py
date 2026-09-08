@@ -15,6 +15,10 @@ from hazzel.providers import get_provider
 from hazzel.providers.base import Usage
 from hazzel.tokens import estimate_messages, estimate_text
 from hazzel.tools.edit_file import edit_file
+from hazzel.tools.git_branch import git_branch
+from hazzel.tools.git_commit import git_commit
+from hazzel.tools.git_diff import git_diff
+from hazzel.tools.git_status import git_status
 from hazzel.tools.list_files import list_files
 from hazzel.tools.read_file import read_file
 from hazzel.tools.run_command import run_command
@@ -30,7 +34,8 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 6 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Tools: you have EXACTLY these 10 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
 
@@ -95,9 +100,41 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_status",
+            "description": "Show git working-tree status (branch + porcelain). Read-only.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_diff",
+            "description": "Show git diff for unstaged or staged changes. Read-only.",
+            "parameters": {"type": "object", "properties": {"staged": {"type": "boolean"}, "path": {"type": "string"}}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_commit",
+            "description": "Commit changes. Omit message or pass 'suggest' to auto-draft from diff (asks y/e/n). Shows diff and asks approval. Use instead of raw git commit.",
+            "parameters": {"type": "object", "properties": {"message": {"type": "string"}, "files": {"type": "array", "items": {"type": "string"}}}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_branch",
+            "description": "Inspect or switch branches: current, list, log, create, switch. Create/switch ask approval.",
+            "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "name": {"type": "string"}}},
+        },
+    },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch"])
 
 _TOOL_ALIASES = {
     "print_tree": "list_files",
@@ -124,6 +161,10 @@ _TOOL_ALIASES = {
     "shell": "run_command",
     "exec": "run_command",
     "run": "run_command",
+    "status": "git_status",
+    "diff": "git_diff",
+    "commit": "git_commit",
+    "branch": "git_branch",
 }
 
 
@@ -277,7 +318,19 @@ def run_tool(tool_name, arguments):
         if tool_name == "edit_file":
             return edit_file(arguments["path"], arguments["old_text"], arguments["new_text"])
         if tool_name == "run_command":
-            return run_command(arguments["command"])
+            cmd = arguments["command"]
+            low = str(cmd).strip().lower()
+            if low.startswith("git commit") or low.startswith("git push") or "reset --hard" in low or low.startswith("git clean"):
+                return "Blocked: use git_commit / git_branch tools instead of raw git writes. Destructive git (reset --hard, clean, --force) is disabled."
+            return run_command(cmd)
+        if tool_name == "git_status":
+            return git_status()
+        if tool_name == "git_diff":
+            return git_diff(arguments.get("staged", False), arguments.get("path", ".") or ".")
+        if tool_name == "git_commit":
+            return git_commit(arguments.get("message"), arguments.get("files"))
+        if tool_name == "git_branch":
+            return git_branch(arguments.get("action", "current") or "current", arguments.get("name", "") or "")
         return f"Unknown tool: {tool_name}. Valid tools: {', '.join(sorted(TOOL_NAMES))}."
     except KeyboardInterrupt:
         raise
@@ -309,14 +362,17 @@ def _build_summary_inner(trace, response_content, user_input):
         result = t["result"]
         if name == "read_file" and success and not t.get("cached"):
             inspected.append(detail)
-        elif name in ("list_files", "search_files") and success and not t.get("cached"):
-            inspected.append(detail)
+        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch") and success and not t.get("cached"):
+            inspected.append(detail or name)
         elif name == "write_file" and success:
             created.append(detail)
             actions.append(f"{name} {detail}".strip())
         elif name == "edit_file" and success:
             changed.append(detail)
             actions.append(f"{name} {detail}".strip())
+        elif name == "git_commit" and success:
+            actions.append(f"git_commit {detail}".strip())
+            changed.append(detail or "commit")
         elif name == "run_command":
             actions.append(f"run_command {detail}".strip())
             if detail.strip().startswith("prove ") or any(k in detail for k in ["pytest", "test", "build", "lint", "typecheck", "ruff", "mypy", "tsc", "npm", "cargo"]):
@@ -916,6 +972,20 @@ def try_fast_path(messages, user_input):
         if pkgs:
             return _fast_install(messages, user_input, pkgs)
 
+    if re.match(r"^(?:git\s+)?status[.!?]*$", low):
+        result = run_tool("git_status", {})
+        return _fast_reply(messages, user_input, str(result), _fast_trace("git_status", "status", str(result), True))
+    if re.match(r"^(?:git\s+)?diff(?:\s+staged)?[.!?]*$", low):
+        staged = "staged" in low
+        result = run_tool("git_diff", {"staged": staged})
+        return _fast_reply(messages, user_input, str(result), _fast_trace("git_diff", "staged" if staged else "", str(result), True))
+    if re.match(r"^(?:git\s+)?log(?:\s+\S+)?[.!?]*$", low):
+        result = run_tool("git_branch", {"action": "log"})
+        return _fast_reply(messages, user_input, str(result), _fast_trace("git_branch", "log", str(result), True))
+    if re.match(r"^(?:git\s+)?branch[.!?]*$", low):
+        result = run_tool("git_branch", {"action": "list"})
+        return _fast_reply(messages, user_input, str(result), _fast_trace("git_branch", "list", str(result), True))
+
     match = re.match(r"^(?:(?:now|please)\s+)?(?:run|execute)\s+(.+?)\s*$", text, re.IGNORECASE)
     if match:
         command = match.group(1).strip().rstrip(".!?")
@@ -1041,14 +1111,14 @@ def run(messages, user_input):
 
             detail = arguments.get(
                 "pattern",
-                arguments.get("path", arguments.get("command", "")),
+                arguments.get("path", arguments.get("command", arguments.get("message", arguments.get("action", "")))),
             )
 
             cache_key = None
             cached = False
             elapsed = None
             try:
-                if tool_name in ("read_file", "list_files", "search_files"):
+                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff"):
                     cache_key = (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
                     if cache_key in seen_reads:
                         result = "(already in context above; do not re-read)"
@@ -1084,6 +1154,10 @@ def run(messages, user_input):
                 "command timed out",
                 "edit cancelled",
                 "write cancelled",
+                "commit cancelled",
+                "branch cancelled",
+                "blocked:",
+                "not a git repo",
             ))
 
             match = re.search(r"exit code (\d+)", low)
@@ -1119,7 +1193,7 @@ def run(messages, user_input):
 
         round_entries = trace[round_start:]
         sig = tuple(sorted((t.get("tool"), str(t.get("detail"))) for t in round_entries))
-        progressed = any(t.get("tool") in ("write_file", "edit_file") and t.get("success") for t in round_entries)
+        progressed = any(t.get("tool") in ("write_file", "edit_file", "git_commit", "git_branch") and t.get("success") for t in round_entries)
         if sig and sig == prev_sig and not progressed:
             stall_count += 1
         else:
@@ -1156,7 +1230,7 @@ def run(messages, user_input):
                 summary = _build_summary(trace, content, user_input)
                 return content, trace, summary
 
-        only_inspect = bool(round_entries) and all(t.get("tool") in ("list_files", "read_file", "search_files") for t in round_entries)
+        only_inspect = bool(round_entries) and all(t.get("tool") in ("list_files", "read_file", "search_files", "git_status", "git_diff") for t in round_entries)
         if only_inspect:
             inspect_streak += 1
         else:

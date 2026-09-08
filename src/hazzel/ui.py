@@ -67,6 +67,11 @@ def _show_header(display_name, project_root):
 SLASH_COMMANDS = [
     {"name": "/model", "desc": "switch model / provider"},
     {"name": "/prove", "desc": "ephemeral smoke check on/off"},
+    {"name": "/status", "desc": "git working-tree status"},
+    {"name": "/diff", "desc": "git diff preview"},
+    {"name": "/commit", "desc": "suggest + commit (approval)"},
+    {"name": "/branch", "desc": "list / switch branches"},
+    {"name": "/log", "desc": "recent commits"},
     {"name": "/help", "desc": "show help"},
     {"name": "/clear", "desc": "clear conversation + usage"},
     {"name": "/summary", "desc": "summarize last implementation"},
@@ -786,6 +791,203 @@ def show_undo(restored):
     console.print()
 
 
+def show_git_status(branch, body):
+    rule()
+    title = Text()
+    title.append("  Git status", style="bold white")
+    title.append(f"  ·  {branch or 'HEAD'}", style=DIM_COLOR)
+    console.print(title)
+    if not body or body.strip() in ("(clean)", "Clean."):
+        console.print(Text("  Clean — nothing to commit.", style=SUCCESS_COLOR))
+    else:
+        table = Table(show_header=False, box=None, pad_edge=False, padding=(0, 1, 0, 0))
+        table.add_column(overflow="fold", width=4)
+        table.add_column(overflow="fold")
+        for line in body.splitlines()[:40]:
+            if line.startswith("## "):
+                continue
+            code = line[:2].strip() or "·"
+            rest = line[3:] if len(line) > 3 else line
+            color = SUCCESS_COLOR if "??" in line[:2] else USER_COLOR if line[:1].strip() else HAZZEL_COLOR
+            table.add_row(Text(code, style=f"bold {color}"), Text(rest.strip(), style="white"))
+        console.print(table)
+        extra = len(body.splitlines()) - 40
+        if extra > 0:
+            console.print(Text(f"  …{extra} more", style=DIM_COLOR))
+    rule()
+
+
+def show_git_diff(body, staged=False):
+    rule()
+    title = Text()
+    title.append("  Git diff", style="bold white")
+    title.append("  ·  staged" if staged else "  ·  unstaged", style=DIM_COLOR)
+    console.print(title)
+    if not body or body.strip() in ("No changes.", "(clean)"):
+        console.print(Text("  No changes.", style=DIM_COLOR))
+    else:
+        show_diff(body[:12000])
+    rule()
+
+
+def show_git_file_list(files, staged=False, branch=""):
+    from rich.panel import Panel
+
+    total_add = sum(f.get("added", 0) for f in files)
+    total_del = sum(f.get("deleted", 0) for f in files)
+    rule()
+    title = Text()
+    title.append(f"  Changed files  ·  {len(files)}", style="bold white")
+    title.append(f"  ·  +{total_add} −{total_del}", style=SUCCESS_COLOR)
+    title.append("  ·  staged" if staged else "  ·  unstaged", style=DIM_COLOR)
+    if branch:
+        title.append(f"  ·  {branch}", style=DIM_COLOR)
+    console.print(title)
+    if not files:
+        console.print(Text("  No changes.", style=DIM_COLOR))
+        rule()
+        return
+    table = Table(show_header=False, box=None, pad_edge=False, padding=(0, 1, 0, 0))
+    table.add_column(overflow="fold", width=4, justify="right")
+    table.add_column(overflow="fold", width=3)
+    table.add_column(overflow="fold", ratio=1)
+    table.add_column(overflow="fold", justify="right", width=8)
+    table.add_column(overflow="fold", justify="right", width=8)
+    icons = {"M": ("M", USER_COLOR), "A": ("A", SUCCESS_COLOR), "?": ("+", SUCCESS_COLOR),
+             "D": ("D", ERROR_COLOR), "R": ("R", HAZZEL_COLOR)}
+    for i, f in enumerate(files, 1):
+        letter, color = icons.get(f.get("status", "M"), ("M", USER_COLOR))
+        table.add_row(
+            Text(str(i), style=DIM_COLOR),
+            Text(letter, style=f"bold {color}"),
+            Text(f["path"], style="white"),
+            Text(f"+{f.get('added', 0)}", style=SUCCESS_COLOR),
+            Text(f"−{f.get('deleted', 0)}", style=ERROR_COLOR),
+        )
+    console.print(Panel(table, border_style="dim", padding=(0, 1)))
+    console.print(Text("  Enter number to open · q = close", style=DIM_COLOR))
+    rule()
+
+
+def show_git_file_diff(path, body, staged=False, position=""):
+    title = Text()
+    title.append(f"  ❯ {position}{path}" if position else f"  ❯ {path}", style="bold white")
+    title.append("  ·  staged" if staged else "  ·  unstaged", style=DIM_COLOR)
+    console.print(title)
+    show_diff(body)
+    console.print()
+
+
+def prompt_diff_selection(count):
+    was_active = _pause_loader()
+    try:
+        answer = input(f"  Open file [1-{count} / q]: ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+    finally:
+        _resume_loader(was_active)
+    clean = _ANSI_RE.sub("", answer or "").strip().lower()
+    if not clean or clean in ("q", "quit", "exit", "n"):
+        return None
+    try:
+        n = int(clean)
+        if 1 <= n <= count:
+            return n - 1
+    except ValueError:
+        pass
+    return "invalid"
+
+
+def show_git_commit(result):
+    text = Text()
+    if "cancelled" in result.lower() or "nothing" in result.lower():
+        text.append("  ○ ", style=f"bold {DIM_COLOR}")
+        text.append(result, style="dim")
+    else:
+        text.append("  ✓ ", style=f"bold {SUCCESS_COLOR}")
+        text.append(result, style="bold white")
+    console.print(text)
+    console.print()
+
+
+def show_git_suggest(message, fallback=False):
+    rule()
+    title = Text()
+    title.append("  Suggested message", style="bold white")
+    if fallback:
+        title.append("  ·  offline draft", style=DIM_COLOR)
+    console.print(title)
+    row = Text()
+    row.append("  ❯ ", style=f"bold {HAZZEL_COLOR}")
+    row.append(message, style="bold white")
+    console.print(row)
+    console.print(Text("  [y] commit · [e] edit · [n] cancel", style=DIM_COLOR))
+    rule()
+
+
+def prompt_suggest_action():
+    was_active = _pause_loader()
+    try:
+        answer = input("  Accept? [y/e/n]: ")
+    except (EOFError, KeyboardInterrupt):
+        return "n"
+    finally:
+        _resume_loader(was_active)
+    clean = _ANSI_RE.sub("", answer or "").strip().lower()
+    if clean in ("y", "yes", ""):
+        return "y"
+    if clean in ("e", "edit"):
+        return "e"
+    return "n"
+
+
+def prompt_suggest_edit(initial):
+    was_active = _pause_loader()
+    try:
+        answer = input(f"  Message [{initial}]: ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+    finally:
+        _resume_loader(was_active)
+    clean = _ANSI_RE.sub("", answer or "").strip()
+    return clean or initial
+
+
+def show_git_branches(current, body):
+    rule()
+    title = Text()
+    title.append("  Branches", style="bold white")
+    if current:
+        title.append(f"  ·  on {current}", style=DIM_COLOR)
+    console.print(title)
+    for line in (body or "").splitlines():
+        mark = line[:2]
+        name = line[2:].strip()
+        row = Text()
+        if mark.strip() == "*":
+            row.append("  ❯ ", style=f"bold {HAZZEL_COLOR}")
+            row.append(name, style="bold white")
+        else:
+            row.append("    ", style=DIM_COLOR)
+            row.append(name, style="dim")
+        console.print(row)
+    rule()
+
+
+def show_git_log(body):
+    rule()
+    console.print(Text("  Recent commits", style="bold white"))
+    for line in (body or "").splitlines()[:20]:
+        parts = line.split(" ", 1)
+        row = Text()
+        row.append("  ", style=DIM_COLOR)
+        row.append(parts[0] if parts else "", style=f"bold {USER_COLOR}")
+        if len(parts) > 1:
+            row.append(f"  {parts[1]}", style="white")
+        console.print(row)
+    rule()
+
+
 def show_model_selected(display_name, provider_display):
     text = Text()
     text.append("  ✓ ", style=f"bold {SUCCESS_COLOR}")
@@ -824,6 +1026,13 @@ _HELP_SECTIONS = [
         ("/undo", "undo last file change"),
         ("/logout", "clear saved API keys"),
         ("/exit", "quit"),
+    ]),
+    ("Git", [
+        ("/status", "working-tree status"),
+        ("/diff", "changed files + full diff [--staged]"),
+        ("/commit", "suggest message + approval"),
+        ("/branch", "list / create / switch"),
+        ("/log", "recent commits"),
     ]),
 ]
 

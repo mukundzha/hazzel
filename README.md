@@ -69,7 +69,7 @@ Config lives at `~/.config/hazzel/config.json` (0600).
 
 ## What it can do
 
-Six tools, no more, no less:
+Ten tools — six for code, four git-native:
 
 | Tool | Story |
 |------|-------|
@@ -79,6 +79,10 @@ Six tools, no more, no less:
 | `write_file("src/example.py", "...")` | Create, with undo |
 | `edit_file("src/main.py", "old", "new")` | Small anchored edit, diff preview, undoable |
 | `run_command("python -m pytest")` | Run shell, with approval, timeout, and cap |
+| `git_status()` | Branch + working-tree status, read-only |
+| `git_diff()` | Per-file diff with +/− counts, read-only |
+| `git_commit("msg")` | Diff preview + approval; omit msg to auto-draft from diff |
+| `git_branch("list")` | List, create, switch — writes ask first |
 
 Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attaches to context.
 
@@ -87,6 +91,11 @@ Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attache
 ```text
 /model    — switch model / provider
 /prove on — ephemeral smoke check after edits (off by default)
+/status   — git working-tree status
+/diff     — changed files, open any file's full diff
+/commit   — suggest a message from your diff, y/e/n
+/branch   — list / create / switch branches
+/log      — recent commits
 /help     — shortcuts + commands
 /clear    — reset conversation + usage
 /summary  — what did Hazzel just do?
@@ -144,10 +153,11 @@ The model decides *what*. Hazzel decides *whether and how*. Tools do the work.
 src/hazzel/
   __main__.py  agent.py  config.py
   llm.py  mentions.py  safety.py  tokens.py
-  ui.py  formatter.py
+  git.py  git_suggest.py  ui.py  formatter.py
   providers/base.py groq.py openai.py mistral.py anthropic.py
   tools/list_files.py read_file.py search_files.py
        write_file.py edit_file.py run_command.py
+       git_status.py git_diff.py git_commit.py git_branch.py
 ```
 
 ## Safety
@@ -160,9 +170,9 @@ File writes/edits/`rm` are undoable. Nothing leaves the project root without you
 
 `0.1.1` — early, deliberate, reliable foundation. Not big, on purpose.
 
-Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering.
+Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, git-native status/diff/commit/branch with message suggestions.
 
-Not yet: streaming, background commands, git-aware patches, session persistence, IDE plugins. Omissions, not oversights.
+Not yet: streaming, background commands, session persistence, IDE plugins. Omissions, not oversights.
 
 ## Author
 
