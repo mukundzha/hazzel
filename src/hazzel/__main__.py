@@ -45,7 +45,11 @@ def _version():
         from importlib.metadata import version
         return version("hazzel")
     except Exception:
-        return "0.1.0"
+        try:
+            from hazzel import __version__
+            return __version__
+        except Exception:
+            return "0.1.2"
 
 
 VERSION = _version()

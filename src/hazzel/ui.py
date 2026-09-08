@@ -54,7 +54,10 @@ def _show_header(display_name, project_root):
         from importlib.metadata import version as _pkg_version
         _ver = _pkg_version("hazzel")
     except Exception:
-        _ver = "0.1.0"
+        try:
+            from hazzel import __version__ as _ver
+        except Exception:
+            _ver = "0.1.2"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=f"bold {USER_COLOR}")
