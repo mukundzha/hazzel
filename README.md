@@ -112,6 +112,8 @@ Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attache
 
 Prove mode is optional and off initially. Turn it on with `/prove on`: after each edit Hazzel shows what it will run and asks once (`Run?`), then either writes a happy-path smoke script to `/tmp` (Python changes, imports just work) or runs your repo's suite (`npm test`, `cargo test`, `go test`, `pytest`) for other files — and reports `prove … — passed/failed`. Nothing is written into your project.
 
+Plan mode is read-only and off initially. Turn it on with `/plan on`: Hazzel explores and answers with a numbered plan instead of acting — writes, runs, and commits stay blocked until you approve with `/plan off`. The footer shows `· plan` vs `· build` so the mode is always visible. The `/` menu pages 5 commands at a time with a `(n/total)` counter.
+
 Commands ask first:
 
 ```text
@@ -177,7 +179,7 @@ File writes/edits/`rm` are undoable. Nothing leaves the project root without you
 
 `0.1.3` — early, deliberate, reliable foundation. Not big, on purpose.
 
-Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, streaming answers, git-native status/diff/commit/branch with message suggestions.
+Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, streaming answers, plan mode, git-native status/diff/commit/branch with message suggestions.
 
 Not yet: background commands, session persistence, IDE plugins. Omissions, not oversights.
 
