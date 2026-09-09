@@ -57,7 +57,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "0.1.2"
+            _ver = "0.1.3"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=f"bold {USER_COLOR}")
