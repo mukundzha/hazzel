@@ -53,3 +53,66 @@ class GroqProvider(BaseProvider):
                 tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=tc.function.arguments or "{}"))
         content = getattr(choice, "content", None)
         return ChatResponse(content=content, tool_calls=tool_calls, usage=_extract_usage(resp))
+
+    def stream(self, messages, tools, on_token=None):
+        try:
+            chunks = call_with_backoff(
+                self.provider_name,
+                lambda: self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=tools,
+                    max_tokens=10000,
+                    stream=True,
+                ),
+            )
+        except Exception:
+            return super().stream(messages, tools, on_token)
+        parts = []
+        acc = {}
+        usage = None
+        try:
+            for chunk in chunks:
+                try:
+                    u = _extract_usage(chunk)
+                    if u and (u.input_tokens or u.output_tokens):
+                        usage = u
+                except Exception:
+                    pass
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                if delta is None:
+                    continue
+                text = getattr(delta, "content", None)
+                if text:
+                    parts.append(text)
+                    if on_token:
+                        try:
+                            on_token(text)
+                        except Exception:
+                            pass
+                for tc in getattr(delta, "tool_calls", None) or []:
+                    idx = getattr(tc, "index", 0) or 0
+                    entry = acc.setdefault(idx, {"id": "", "name": "", "args": ""})
+                    if getattr(tc, "id", None):
+                        entry["id"] = tc.id
+                    fn = getattr(tc, "function", None)
+                    if fn is not None:
+                        if getattr(fn, "name", None):
+                            entry["name"] = fn.name
+                        if getattr(fn, "arguments", None):
+                            entry["args"] += fn.arguments
+        except Exception as error:
+            if not parts and not acc:
+                raise
+            msg = str(error).lower()
+            if "401" in msg or "auth" in msg or "unauthorized" in msg:
+                raise RuntimeError("Unable to connect to Groq\n\nCheck your API key and try again.") from error
+        tool_calls = []
+        for idx in sorted(acc):
+            entry = acc[idx]
+            if entry["name"]:
+                tool_calls.append(ToolCall(id=entry["id"] or f"call_{idx}", name=entry["name"], arguments=entry["args"] or "{}"))
+        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage)

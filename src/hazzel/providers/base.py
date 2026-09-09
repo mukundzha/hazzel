@@ -74,3 +74,12 @@ class BaseProvider(ABC):
     @abstractmethod
     def chat(self, messages, tools) -> ChatResponse:
         ...
+
+    def stream(self, messages, tools, on_token=None) -> ChatResponse:
+        response = self.chat(messages, tools)
+        if on_token and response.content:
+            try:
+                on_token(response.content)
+            except Exception:
+                pass
+        return response

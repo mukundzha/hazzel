@@ -277,6 +277,42 @@ def _safe_chat(provider, task_messages, tools, retries=1):
     return response
 
 
+def _normalize_response_tools(response):
+    for tc in getattr(response, "tool_calls", None) or []:
+        fixed = _normalize_tool_name(tc.name)
+        if fixed is not None and fixed != tc.name:
+            tc.name = fixed
+            try:
+                parsed = json.loads(tc.arguments) if tc.arguments else {}
+            except (json.JSONDecodeError, TypeError, ValueError):
+                parsed = {}
+            tc.arguments = json.dumps(_coerce_tool_args(fixed, parsed))
+    return response
+
+
+def _safe_stream_chat(provider, task_messages, tools):
+    try:
+        ui.begin_stream()
+        try:
+            response = provider.stream(task_messages, tools, on_token=ui.push_stream_token)
+        finally:
+            try:
+                ui.end_stream()
+            except Exception:
+                pass
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        return _safe_chat(provider, task_messages, tools)
+    _normalize_response_tools(response)
+    if getattr(response, "tool_calls", None):
+        try:
+            ui.show_loader("Working…")
+        except Exception:
+            pass
+    return response
+
+
 def _distill_result(text):
     lines = str(text).splitlines()
     cleaned = []
@@ -1041,7 +1077,7 @@ def run(messages, user_input):
 
     try:
         provider = get_provider()
-        response = _safe_chat(provider, task_messages, TOOLS)
+        response = _safe_stream_chat(provider, task_messages, TOOLS)
         try:
             _record_usage(response, task_messages)
         except Exception:
@@ -1220,7 +1256,7 @@ def run(messages, user_input):
                     "content": "Stop calling tools. Answer now with NO tool calls, using only the context gathered so far.",
                 })
                 try:
-                    final = provider.chat(task_messages, [])
+                    final = _safe_stream_chat(provider, task_messages, [])
                     _record_usage(final, task_messages)
                     content = (final.content or "").strip() or "Done."
                 except Exception:
@@ -1256,7 +1292,7 @@ def run(messages, user_input):
 
         _enforce_turn_budget(task_messages)
         try:
-            response = _safe_chat(provider, task_messages, TOOLS)
+            response = _safe_stream_chat(provider, task_messages, TOOLS)
             try:
                 _record_usage(response, task_messages)
             except Exception:

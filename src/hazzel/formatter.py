@@ -296,6 +296,8 @@ def render_code_block(
         title=language,
         title_align="left",
         border_style="dim",
+        box=box.ROUNDED,
+        expand=False,
         padding=(0, 1),
     )
 
@@ -326,7 +328,7 @@ def render_table(
         header_style="bold #ffb6c1",
         border_style="dim",
         box=box.ROUNDED,
-        show_lines=True,
+        show_lines=False,
         show_edge=True,
         expand=False,
         padding=TABLE_PADDING,
@@ -972,14 +974,10 @@ def print_response(
     for renderable in format_response(
         message
     ):
-        inner = renderable.get_renderable() if isinstance(renderable, Padding) else renderable
-        if isinstance(inner, (Table, Panel)):
-            console.print(renderable, soft_wrap=False)
-        else:
-            console.print(
-                Padding(
-                    renderable,
-                    (0, 0, 0, 2),
-                ),
-                soft_wrap=False,
-            )
+        console.print(
+            Padding(
+                renderable,
+                (0, 0, 0, 2),
+            ),
+            soft_wrap=False,
+        )

@@ -338,13 +338,14 @@ def get_input(messages=None):
                 if m_total > len(m_cands):
                     lines.append(f"  \x1b[2m+{m_total - len(m_cands)} more — keep typing to narrow\x1b[0m")
             elif filtered:
+                width = max([len(c["name"]) for c in filtered] + [8])
                 for i, c in enumerate(filtered):
-                    name = c["name"].ljust(8)
+                    name = c["name"].ljust(width)
                     desc = c["desc"]
                     if i == selected:
-                        lines.append(f"  \x1b[1m\x1b[97m\u276f {name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
+                        lines.append(f"  \x1b[38;5;217m\u276f\x1b[0m \x1b[1m\x1b[97m{name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
                     else:
-                        lines.append(f"    \x1b[97m{name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
+                        lines.append(f"    \x1b[2m{name}  {desc}\x1b[0m")
             lines.append(bar)
             if tok:
                 lines.append(f"  \x1b[2m{mid} · {tok} · @ tag file · /exit quit{rst}")
@@ -632,6 +633,68 @@ def _pause_loader():
 def _resume_loader(was_active, text="Working…"):
     if was_active:
         show_loader(text)
+
+
+_stream_live = None
+_stream_buffer = ""
+
+
+def _is_stream_tty():
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except Exception:
+        return False
+
+
+def begin_stream():
+    global _stream_live, _stream_buffer
+    hide_loader()
+    _stream_buffer = ""
+    if not _is_stream_tty():
+        _stream_live = False
+        return
+    try:
+        _stream_live = Live(
+            Text("", style="white"),
+            console=console,
+            refresh_per_second=12,
+            transient=True,
+        )
+        _stream_live.start()
+    except Exception:
+        _stream_live = False
+
+
+def push_stream_token(token):
+    global _stream_buffer
+    if not token:
+        return
+    _stream_buffer += token
+    if _stream_live is None or _stream_live is False:
+        return
+    try:
+        tail = _stream_buffer[-3000:]
+        _stream_live.update(Text(tail, style="white"))
+    except Exception:
+        pass
+
+
+def end_stream():
+    global _stream_live, _stream_buffer
+    buf = _stream_buffer
+    _stream_buffer = ""
+    if _stream_live is None or _stream_live is False:
+        _stream_live = None
+        return buf
+    try:
+        _stream_live.stop()
+    except Exception:
+        pass
+    finally:
+        _stream_live = None
+    return buf
+
+
 _loader = None
 _tool_rows: list[Text] = []
 _turn_started = None
@@ -646,7 +709,6 @@ def show_hazzel_message(message):
     if not message or not message.strip():
         return
     print_response(console, message)
-    console.print()
 
 
 def _short_detail(detail: str, limit: int = 62) -> str:

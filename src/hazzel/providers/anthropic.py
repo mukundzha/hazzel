@@ -114,3 +114,72 @@ class AnthropicProvider(BaseProvider):
                 args_json = json.dumps(args)
                 tool_calls.append(ToolCall(id=getattr(block, "id", ""), name=getattr(block, "name", ""), arguments=args_json))
         return ChatResponse(content=content_text if content_text else None, tool_calls=tool_calls, usage=_extract_usage(resp))
+
+    def stream(self, messages, tools, on_token=None):
+        system, anth_messages = _messages_to_anthropic(messages)
+        anth_tools = _openai_tools_to_anthropic(tools)
+        kwargs = {
+            "model": self.model,
+            "messages": anth_messages,
+            "max_tokens": 10000,
+            "stream": True,
+        }
+        if system:
+            kwargs["system"] = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+        if anth_tools:
+            kwargs["tools"] = anth_tools
+        try:
+            events = call_with_backoff("Anthropic", lambda: self.client.messages.create(**kwargs))
+        except Exception:
+            return super().stream(messages, tools, on_token)
+        parts = []
+        acc = {}
+        usage = None
+        try:
+            for event in events:
+                etype = getattr(event, "type", None)
+                if etype == "content_block_start":
+                    block = getattr(event, "content_block", None)
+                    idx = getattr(event, "index", 0) or 0
+                    if block is not None and getattr(block, "type", None) == "tool_use":
+                        acc[idx] = {"id": getattr(block, "id", "") or "", "name": getattr(block, "name", "") or "", "args": ""}
+                elif etype == "content_block_delta":
+                    idx = getattr(event, "index", 0) or 0
+                    delta = getattr(event, "delta", None)
+                    dtype = getattr(delta, "type", None) if delta is not None else None
+                    if dtype == "text_delta":
+                        text = getattr(delta, "text", "") or ""
+                        if text:
+                            parts.append(text)
+                            if on_token:
+                                try:
+                                    on_token(text)
+                                except Exception:
+                                    pass
+                    elif dtype == "input_json_delta":
+                        fragment = getattr(delta, "partial_json", "") or ""
+                        if idx in acc:
+                            acc[idx]["args"] += fragment
+                elif etype == "message_delta":
+                    try:
+                        u = getattr(event, "usage", None)
+                        if u is not None:
+                            out = int(getattr(u, "output_tokens", 0) or 0)
+                            if out:
+                                usage = Usage(input_tokens=0, output_tokens=out)
+                    except Exception:
+                        pass
+                elif etype == "message_stop":
+                    pass
+        except Exception as error:
+            if not parts and not acc:
+                raise
+            msg = str(error).lower()
+            if "401" in msg or "auth" in msg or "unauthorized" in msg:
+                raise RuntimeError("Unable to connect to Anthropic\n\nCheck your API key and try again.") from error
+        tool_calls = []
+        for idx in sorted(acc):
+            entry = acc[idx]
+            if entry["name"]:
+                tool_calls.append(ToolCall(id=entry["id"] or f"call_{idx}", name=entry["name"], arguments=entry["args"] or "{}"))
+        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage)
