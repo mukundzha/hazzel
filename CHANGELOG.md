@@ -4,8 +4,14 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [0.1.4] - 2026-09-09
 ### Added
-- Plan mode (`/plan on|off`): read-only exploration with a reduced tool set — writes, runs, and commits are blocked until approval; footer shows `· plan` while active.
+- Plan mode (`/plan on|off`): read-only exploration with a reduced tool set — writes, runs, and commits are blocked until approval; footer shows `· plan` vs `· build` so the mode is always visible.
+- Streaming answers on all four providers with automatic fallback to a full response if a stream drops.
+- `/` menu pages 5 commands at a time with a `(n/total)` counter; pink `❯` on selection.
+- Cleaner replies: code blocks hug content, tables drop per-row lines, uniform indent, no dead gap before the input box.
+- Version detection falls back to `__version__` when package metadata is missing.
 - Git-native agent: 4 new tools (`git_status`, `git_diff`, `git_commit`, `git_branch`) — 10 total, up from 6.
 - Slash commands: `/status`, `/diff`, `/commit`, `/branch`, `/log`, `/push`, `/pull`, `/sync`.
 - Commit-message suggestions: `/commit` with no message drafts a Conventional Commit from your diff via the current model (offline heuristic fallback), then asks `[y] commit · [e] edit · [n] cancel`.

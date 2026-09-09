@@ -49,7 +49,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "0.1.2"
+            return "0.1.4"
 
 
 VERSION = _version()

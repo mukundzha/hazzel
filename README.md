@@ -177,7 +177,7 @@ File writes/edits/`rm` are undoable. Nothing leaves the project root without you
 
 ## Status
 
-`0.1.3` — early, deliberate, reliable foundation. Not big, on purpose.
+`0.1.4` — early, deliberate, reliable foundation. Not big, on purpose.
 
 Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, streaming answers, plan mode, git-native status/diff/commit/branch with message suggestions.
 
