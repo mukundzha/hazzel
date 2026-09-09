@@ -54,6 +54,7 @@ _provider = "groq"
 _display_name = "GPT OSS 120B"
 _api_keys: dict[str, str] = {}
 _prove_enabled = False
+_plan_enabled = False
 
 MODEL = _model
 
@@ -80,7 +81,7 @@ def _get_config_file():
 
 
 def _load_config():
-    global _model, _provider, _display_name, MODEL, _prove_enabled
+    global _model, _provider, _display_name, MODEL, _prove_enabled, _plan_enabled
     path = _get_config_file()
     if not path.exists():
         return
@@ -122,6 +123,8 @@ def _load_config():
                 _display_name = model
     if isinstance(data.get("prove_enabled"), bool):
         _prove_enabled = data["prove_enabled"]
+    if isinstance(data.get("plan_enabled"), bool):
+        _plan_enabled = data["plan_enabled"]
 
 
 def _save_config():
@@ -130,7 +133,7 @@ def _save_config():
         os.chmod(CONFIG_DIR, 0o700)
     except OSError:
         pass
-    data = {"keys": dict(_api_keys), "provider": _provider, "model": _model, "display_name": _display_name, "prove_enabled": _prove_enabled}
+    data = {"keys": dict(_api_keys), "provider": _provider, "model": _model, "display_name": _display_name, "prove_enabled": _prove_enabled, "plan_enabled": _plan_enabled}
     tmp = None
     try:
         fd, tmp_path = tempfile.mkstemp(dir=str(CONFIG_DIR))
@@ -236,6 +239,19 @@ def is_prove_enabled():
 def set_prove_enabled(enabled):
     global _prove_enabled
     _prove_enabled = bool(enabled)
+    try:
+        _save_config()
+    except OSError:
+        pass
+
+
+def is_plan_enabled():
+    return _plan_enabled
+
+
+def set_plan_enabled(enabled):
+    global _plan_enabled
+    _plan_enabled = bool(enabled)
     try:
         _save_config()
     except OSError:

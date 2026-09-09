@@ -91,6 +91,7 @@ Tag files directly: `@src/agent.py fix this`. Tab-completes, highlights, attache
 
 ```text
 /model    — switch model / provider
+/plan on  — read-only plan mode: Hazzel explores and proposes, you approve (off by default)
 /prove on — ephemeral smoke check after edits (off by default)
 /status   — git working-tree status
 /diff     — changed files, open any file's full diff

@@ -193,6 +193,23 @@ def main(argv=None):
             console.print(f"  Prove mode: {state} — ephemeral smoke check in /tmp after edits.", style="dim")
             console.print()
             continue
+        parts_plan = user_input.strip().lower().split()
+        if parts_plan and parts_plan[0] == "/plan":
+            arg = parts_plan[1] if len(parts_plan) > 1 else ""
+            if arg in ("on", "enable", "true", "1"):
+                config.set_plan_enabled(True)
+            elif arg in ("off", "disable", "false", "0"):
+                config.set_plan_enabled(False)
+            elif arg in ("status", "show", ""):
+                pass
+            else:
+                ui.show_error("Usage: /plan on|off")
+                console.print()
+                continue
+            state = "on" if config.is_plan_enabled() else "off"
+            console.print(f"  Plan mode: {state} — read-only exploration; Hazzel proposes, you approve with /plan off.", style="dim")
+            console.print()
+            continue
         if user_input.strip().lower() in ["/help", "/h", "help"]:
             ui.show_help()
             continue

@@ -75,6 +75,31 @@ def test_fast_run_guards(monkeypatch):
     assert agent.try_fast_path([{"role": "system", "content": "x"}], "run the tests") is None
 
 
+def test_plan_blocks_writes(monkeypatch):
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: True)
+    assert agent.run_tool("write_file", {"path": "a.py", "content": "x"}).startswith("Blocked: plan mode")
+    assert agent.run_tool("edit_file", {"path": "a.py", "old_text": "x", "new_text": "y"}).startswith("Blocked: plan mode")
+    assert agent.run_tool("run_command", {"command": "ls"}).startswith("Blocked: plan mode")
+    assert agent.run_tool("git_commit", {"message": "x"}).startswith("Blocked: plan mode")
+    assert agent.run_tool("git_branch", {"action": "create", "name": "x"}).startswith("Blocked: plan mode")
+    assert {t["function"]["name"] for t in agent.PLAN_TOOLS} == {"list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch"}
+
+
+def test_plan_allows_reads(monkeypatch):
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: True)
+    assert "Blocked" not in agent.run_tool("git_branch", {"action": "list"})
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: False)
+    assert "Blocked" not in agent.run_tool("git_branch", {"action": "list"})
+
+
+def test_plan_fast_path_defers(monkeypatch):
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: True)
+    msgs = [{"role": "system", "content": "x"}]
+    assert agent.try_fast_path(msgs, "delete foo.py") is None
+    assert agent.try_fast_path(msgs, "run pytest -q") is None
+    assert agent.try_fast_path(msgs, "download tabulate") is None
+
+
 def test_fast_context_variants():
     for query in ("get context of README.md", "context of README.md", "context README.md"):
         msgs = [{"role": "system", "content": "x"}]

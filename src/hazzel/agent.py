@@ -136,6 +136,40 @@ TOOLS = [
 
 TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch"])
 
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch"])
+
+PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
+
+PLAN_ADDENDUM = (
+    "\n\nPlan mode is ON (read-only). Explore with your tools, then present a short numbered plan "
+    "and stop — no file changes, no commands, no commits. The user approves with /plan off."
+)
+
+PLAN_BLOCKED_MESSAGE = (
+    "Blocked: plan mode is on (read-only). Explore and present a numbered plan instead — "
+    "no writes, runs, or commits until the user runs /plan off."
+)
+
+
+def _active_tools():
+    try:
+        if config.is_plan_enabled():
+            return PLAN_TOOLS
+    except Exception:
+        pass
+    return TOOLS
+
+
+def _plan_blocked(tool_name, arguments):
+    if tool_name in ("write_file", "edit_file", "run_command", "git_commit"):
+        return True
+    if tool_name == "git_branch":
+        action = ""
+        if isinstance(arguments, dict):
+            action = str(arguments.get("action", "") or "current").lower()
+        return action not in ("current", "list", "log")
+    return False
+
 _TOOL_ALIASES = {
     "print_tree": "list_files",
     "printtree": "list_files",
@@ -342,6 +376,11 @@ def run_tool(tool_name, arguments):
     if fixed is not None and fixed != tool_name:
         tool_name = fixed
         arguments = _coerce_tool_args(tool_name, arguments if isinstance(arguments, dict) else {})
+    try:
+        if config.is_plan_enabled() and _plan_blocked(tool_name, arguments):
+            return PLAN_BLOCKED_MESSAGE
+    except Exception:
+        pass
     try:
         if tool_name == "list_files":
             return list_files(arguments["path"])
@@ -814,7 +853,16 @@ def _fast_trace(tool, detail, result, success):
     return [{"tool": tool, "args": {}, "detail": detail, "result": result, "success": success, "exit_code": None}]
 
 
+def _plan_defers():
+    try:
+        return config.is_plan_enabled()
+    except Exception:
+        return False
+
+
 def _fast_delete(messages, user_input, target):
+    if _plan_defers():
+        return None
     try:
         resolved = resolve_project_path(target)
     except ValueError as error:
@@ -831,6 +879,8 @@ def _fast_delete(messages, user_input, target):
 
 
 def _fast_create(messages, user_input, target):
+    if _plan_defers():
+        return None
     try:
         if resolve_project_path(target).exists():
             reply = f"{target} already exists."
@@ -902,6 +952,8 @@ def _parse_package_names(raw):
 
 
 def _fast_install(messages, user_input, pkgs):
+    if _plan_defers():
+        return None
     command = "pip install " + " ".join(shlex.quote(p) for p in pkgs)
     result = run_tool("run_command", {"command": command})
     success = not str(result).lower().startswith(("command failed", "command cancelled", "command timed out", "tool error"))
@@ -913,6 +965,8 @@ def _fast_install(messages, user_input, pkgs):
 
 
 def _fast_run(messages, user_input, command):
+    if _plan_defers():
+        return None
     result = run_tool("run_command", {"command": command})
     if isinstance(result, list):
         result = "\n".join(result) or "(empty directory)"
@@ -1042,6 +1096,8 @@ def run(messages, user_input):
     # `messages` holds the system prompt plus compact history from previous turns.
     # Tool traffic for this turn is added to a working copy and never persisted.
     task_messages = messages + [{"role": "user", "content": user_input}]
+    if _plan_defers() and task_messages and task_messages[0].get("role") == "system":
+        task_messages[0] = {"role": "system", "content": (task_messages[0].get("content") or "") + PLAN_ADDENDUM}
 
     trace = []
     seen_reads = set()
@@ -1077,7 +1133,7 @@ def run(messages, user_input):
 
     try:
         provider = get_provider()
-        response = _safe_stream_chat(provider, task_messages, TOOLS)
+        response = _safe_stream_chat(provider, task_messages, _active_tools())
         try:
             _record_usage(response, task_messages)
         except Exception:
@@ -1292,7 +1348,7 @@ def run(messages, user_input):
 
         _enforce_turn_budget(task_messages)
         try:
-            response = _safe_stream_chat(provider, task_messages, TOOLS)
+            response = _safe_stream_chat(provider, task_messages, _active_tools())
             try:
                 _record_usage(response, task_messages)
             except Exception:
