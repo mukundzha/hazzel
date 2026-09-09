@@ -11,7 +11,8 @@ It stays where the work happens — your terminal, your project, your rules — 
 Just you, your terminal, and an agent that knows its place.
 
 ```text
-Hazzel 0.1.1 ~/hazzel
+Hazzel 0.1.2
+~/hazzel
 
 ❯ fix the bug in agent.py
 
@@ -119,7 +120,9 @@ Allow? [y/N]
 
 Edits show a diff and ask first. Deletes and overwrites are checkpointed for `/undo`.
 
-The agent is frugal by design: trivial turns (`hi`, `read foo.py`, `list files`) run locally with zero LLM calls, history is compacted to ~1200 tokens, tool output is distilled to ~2500 chars.
+Answers stream in token-by-token on all four providers, with automatic fallback to a full response if a stream drops mid-turn.
+
+The agent is frugal by design: trivial turns (`hi`, `read foo.py`, `list files`) run locally with zero LLM calls, history is compacted to ~2400 tokens, tool output is distilled to ~5000 chars.
 
 ## Models
 
@@ -139,7 +142,7 @@ You
  ↓
 __main__.py  — listens, routes slash commands
  ↓
-agent.py     — fast-path + tool loop (max 10), history, budget
+agent.py     — fast-path + tool loop (max 114), history, budget
  ↓
 providers/   — groq / openai / mistral / anthropic, one interface
  ↓
@@ -147,7 +150,7 @@ tools/       — the only hands that touch your project
  ↓
 safety.py    — checkpoint before every mutation
  ↓
-ui.py + formatter.py — spinners, diffs, markdown, token meter
+ui.py + formatter.py — spinners, streaming answers, diffs, markdown, token meter
 ```
 
 The model decides *what*. Hazzel decides *whether and how*. Tools do the work.
@@ -171,11 +174,11 @@ File writes/edits/`rm` are undoable. Nothing leaves the project root without you
 
 ## Status
 
-`0.1.1` — early, deliberate, reliable foundation. Not big, on purpose.
+`0.1.3` — early, deliberate, reliable foundation. Not big, on purpose.
 
-Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, git-native status/diff/commit/branch with message suggestions.
+Included: terminal UI, multi-provider, tool-calling, @mentions, history compaction, undo, approval, timeout, token usage, markdown rendering, streaming answers, git-native status/diff/commit/branch with message suggestions.
 
-Not yet: streaming, background commands, session persistence, IDE plugins. Omissions, not oversights.
+Not yet: background commands, session persistence, IDE plugins. Omissions, not oversights.
 
 ## Author
 
