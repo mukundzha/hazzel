@@ -70,6 +70,7 @@ def _show_header(display_name, project_root):
 SLASH_COMMANDS = [
     {"name": "/model", "desc": "switch model / provider"},
     {"name": "/prove", "desc": "ephemeral smoke check on/off"},
+    {"name": "/plan", "desc": "read-only plan mode on/off"},
     {"name": "/status", "desc": "git working-tree status"},
     {"name": "/diff", "desc": "git diff preview"},
     {"name": "/commit", "desc": "suggest + commit (approval)"},
@@ -339,18 +340,32 @@ def get_input(messages=None):
                     lines.append(f"  \x1b[2m+{m_total - len(m_cands)} more — keep typing to narrow\x1b[0m")
             elif filtered:
                 width = max([len(c["name"]) for c in filtered] + [8])
-                for i, c in enumerate(filtered):
+                total = len(filtered)
+                visible = 5
+                start = max(0, min(selected - visible // 2, total - visible))
+                end = min(total, start + visible)
+                if end - start < visible:
+                    start = max(0, end - visible)
+                for i in range(start, end):
+                    c = filtered[i]
                     name = c["name"].ljust(width)
                     desc = c["desc"]
                     if i == selected:
                         lines.append(f"  \x1b[38;5;217m\u276f\x1b[0m \x1b[1m\x1b[97m{name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
                     else:
                         lines.append(f"    \x1b[2m{name}  {desc}\x1b[0m")
+                lines.append(f"  \x1b[2m({selected + 1}/{total})\x1b[0m")
             lines.append(bar)
+            try:
+                from . import config as _cfg
+
+                _plan_bit = " · plan" if _cfg.is_plan_enabled() else " · build"
+            except Exception:
+                _plan_bit = ""
             if tok:
-                lines.append(f"  \x1b[2m{mid} · {tok} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit} · @ tag file · /exit quit{rst}")
             else:
-                lines.append(f"  \x1b[2m{mid} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid}{_plan_bit} · @ tag file · /exit quit{rst}")
 
             nlines = _visual_rows(lines)
             out = "\r\n".join(lines)
@@ -1112,6 +1127,7 @@ _HELP_SECTIONS = [
     ("Commands", [
         ("/model", "switch model & provider"),
         ("/prove", "smoke check on/off"),
+        ("/plan", "read-only plan, approve first"),
         ("/help", "this overview"),
         ("/clear", "reset conversation + usage"),
         ("/summary", "summarize last implementation"),
