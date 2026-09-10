@@ -4,6 +4,8 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [0.1.8] - 2026-09-10
 ### Added
 - New providers (8 total): Gemini, DeepSeek, OpenRouter via OpenAI-compatible endpoints, plus keyless local Ollama (`OLLAMA_HOST` override). No new dependencies.
 - GitHub PRs via `gh`: `/pr` list/view/diff/checks (read-only) plus comment/create/merge/close with approval; new `github_pr` agent tool (plan-mode read-only for reads, raw `gh pr` writes blocked).

@@ -66,7 +66,7 @@ Switch anytime with `/model`.
 
 ## What it is not
 
-Early-stage (v0.1.7). Expect rough edges.
+Early-stage (v0.1.8). Expect rough edges.
 
 No web browsing, no deploys, no background agents, no session persistence across restarts. It doesn't replace your editor — it stays in the terminal next to it.
 
