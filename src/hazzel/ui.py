@@ -57,7 +57,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "0.1.5"
+            _ver = "0.1.6"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=f"bold {USER_COLOR}")
@@ -83,6 +83,8 @@ SLASH_COMMANDS = [
     {"name": "/clear", "desc": "clear conversation + usage"},
     {"name": "/summary", "desc": "summarize last implementation"},
     {"name": "/export", "desc": "save transcript to markdown"},
+    {"name": "/copy", "desc": "copy last reply [code]"},
+    {"name": "/retry", "desc": "re-run last message"},
     {"name": "/usage", "desc": "show token usage"},
     {"name": "/undo", "desc": "undo last file change"},
     {"name": "/logout", "desc": "clear saved API keys"},
@@ -1133,6 +1135,8 @@ _HELP_SECTIONS = [
         ("/clear", "reset conversation + usage"),
         ("/summary", "summarize last implementation"),
         ("/export", "save transcript [file.md]"),
+        ("/copy", "copy last reply [code]"),
+        ("/retry", "re-run last message"),
         ("/usage", "show token usage"),
         ("/undo", "undo last file change"),
         ("/logout", "clear saved API keys"),
@@ -1152,6 +1156,7 @@ _HELP_SECTIONS = [
 
 
 _HELP_FOOT = "Models  ·  Groq · OpenAI · Mistral · Anthropic  —  /model to switch"
+_STAR_LINE = "If Hazzel helps, star us: github.com/mukundzha/hazzel"
 
 
 def _help_table(rows):
@@ -1174,10 +1179,7 @@ def _help_table(rows):
 
 
 def show_help():
-    if sys.stdin.isatty():
-        _show_help_tab()
-    else:
-        _print_help_inline()
+    _print_help_inline()
 
 
 def _print_help_inline():
@@ -1189,7 +1191,7 @@ def _print_help_inline():
         console.print(_help_table(rows))
     console.print()
     console.print(Text(_HELP_FOOT, style="dim"))
-    console.print("  Esc to cancel")
+    console.print(Text(f"  {_STAR_LINE}", style="dim"))
     console.print()
 
 
@@ -1403,6 +1405,20 @@ def show_summary(summary, trace=None):
             console.print(line)
         console.print()
     print_response(console, summary)
+    console.print()
+
+
+def show_star_nudge():
+    console.print(Text("  If Hazzel helps, star us: github.com/mukundzha/hazzel", style="dim"))
+    console.print()
+
+
+def show_copied(msg="Copied to clipboard."):
+    console.print()
+    line = Text()
+    line.append("  ", style="dim")
+    line.append(msg, style="bold white")
+    console.print(line)
     console.print()
 
 

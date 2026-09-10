@@ -8,6 +8,22 @@ PROJECT_ROOT = Path.cwd()
 CONFIG_DIR = Path(os.getenv("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "hazzel"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 LEGACY_FILE = Path.home() / ".hazzel" / "config.json"
+STAR_NUDGE_FILE = CONFIG_DIR / ".star_nudged"
+
+
+def should_show_star_nudge():
+    try:
+        return not STAR_NUDGE_FILE.exists()
+    except OSError:
+        return False
+
+
+def mark_star_nudged():
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        STAR_NUDGE_FILE.touch(exist_ok=True)
+    except OSError:
+        pass
 
 MODEL_CATALOG = [
     {"display_name": "GPT-6 Astra", "id": "gpt-6-astra", "provider": "openai", "provider_display": "OpenAI"},

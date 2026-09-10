@@ -12,6 +12,8 @@ messages = [{"role": "system", "content": agent.SYSTEM_PROMPT}]
 
 _last_summary = None
 _last_trace = []
+_last_response = None
+_last_user_input = None
 
 
 def handle_model_command():
@@ -49,14 +51,14 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "0.1.5"
+            return "0.1.6"
 
 
 VERSION = _version()
 
 
 def main(argv=None):
-    global _last_summary, _last_trace
+    global _last_summary, _last_trace, _last_response, _last_user_input
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] in ("--version", "-V"):
         console.print(f"Hazzel {VERSION}")
@@ -68,6 +70,9 @@ def main(argv=None):
         ui.show_error(f"Unknown option: {args[0]}. Try --help.")
         return
     ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
+    if config.should_show_star_nudge():
+        ui.show_star_nudge()
+        config.mark_star_nudged()
     if not config.has_any_key():
         console.print("  No API key yet — run /model to add one (takes ~10s).", style="dim")
         console.print()
@@ -217,6 +222,8 @@ def main(argv=None):
             config.clear_api_keys()
             _last_summary = None
             _last_trace = []
+            _last_response = None
+            _last_user_input = None
             ui.show_logout()
             continue
         if user_input.strip().lower() in ["/summary", "/s", "summary"]:
@@ -238,6 +245,48 @@ def main(argv=None):
         if user_input.strip().lower() in ["/usage", "/u", "usage"]:
             ui.show_usage(agent.get_session_usage(), agent.get_last_turn_usage())
             continue
+        if low_in == "retry" or low_in.startswith("/retry"):
+            if not (_last_user_input or "").strip():
+                ui.show_error("No previous message — ask something first.")
+                continue
+            try:
+                result = agent.run(messages, _last_user_input)
+            except KeyboardInterrupt:
+                ui.end_turn()
+                ui.show_hazzel_message("Cancelled.")
+                continue
+            except Exception as error:
+                ui.end_turn()
+                ui.show_error(f"Turn failed ({error}). Nothing was committed; try again.")
+                continue
+            if isinstance(result, tuple) and len(result) == 3:
+                response, trace, summary = result
+                _last_trace = trace
+                _last_summary = summary
+            else:
+                response = result
+                _last_trace = []
+                _last_summary = None
+            _last_response = response
+            ui.show_hazzel_message(response)
+            continue
+        if low_in == "copy" or low_in.startswith("/copy"):
+            raw = user_input.strip()
+            arg = (raw[5:].strip() if raw.startswith("/") else raw[4:].strip()).lower()
+            from hazzel.clipboard import copy_text, extract_last_code_block
+            text = _last_response or ""
+            if arg in ("code", "block"):
+                code = extract_last_code_block(text)
+                if not code:
+                    ui.show_error("No code block in the last reply — copying everything instead.")
+                else:
+                    text = code
+            ok, out = copy_text(text)
+            if ok:
+                ui.show_copied(out)
+            else:
+                ui.show_error(out)
+            continue
         parts = user_input.strip().lower().split()
         if parts and parts[0] in ["/undo", "undo"]:
             count = 1
@@ -254,6 +303,8 @@ def main(argv=None):
             agent.reset_conversation_state()
             _last_summary = None
             _last_trace = []
+            _last_response = None
+            _last_user_input = None
             try:
                 sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
                 sys.stdout.flush()
@@ -261,6 +312,7 @@ def main(argv=None):
                 pass
             ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
             continue
+        _last_user_input = user_input
         try:
             result = agent.run(messages, user_input)
         except KeyboardInterrupt:
@@ -279,6 +331,7 @@ def main(argv=None):
             response = result
             _last_trace = []
             _last_summary = None
+        _last_response = response
         ui.show_hazzel_message(response)
 
 

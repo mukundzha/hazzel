@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-10
+### Added
+- `/copy [code]`: copy last reply (or just its last code block) via pbcopy/wl-copy/xclip/xsel.
+- `/retry`: re-run the last user message through the full agent loop.
+- Star nudges: one-time first-run note plus a line in `/help`.
+### Changed
+- `/help` prints inline instead of taking over the whole screen.
+
 ## [0.1.5] - 2026-09-10
 ### Added
 - Safe-command allowlist: `run_command` skips approval for read-only cmds (`ls`, `pwd`, `cat`, `head`, `tail`, `echo`, `wc`, `file`, `git status/diff/log`); chained or shell-metachar commands still ask.
