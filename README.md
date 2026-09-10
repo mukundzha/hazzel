@@ -10,7 +10,7 @@ A small terminal coding agent. Bring your own key.
 
 Hazzel lives in your terminal. It reads code, edits files, runs commands, and works with git — always with your approval first.
 
-![Hazzel demo](assets/demo.png)
+![Hazzel demo](assets/demo.gif)
 
 ```bash
 pip install hazzel
