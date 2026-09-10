@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-10
+### Added
+- Safe-command allowlist: `run_command` skips approval for read-only cmds (`ls`, `pwd`, `cat`, `head`, `tail`, `echo`, `wc`, `file`, `git status/diff/log`); chained or shell-metachar commands still ask.
+- `/export [file.md]`: save transcript + last implementation summary + tool trace + usage to markdown, jailed to project root with auto-suffix on clash.
+
 ## [0.1.4] - 2026-09-09
 ### Added
 - Plan mode (`/plan on|off`): read-only exploration with a reduced tool set — writes, runs, and commits are blocked until approval; footer shows `· plan` vs `· build` so the mode is always visible.

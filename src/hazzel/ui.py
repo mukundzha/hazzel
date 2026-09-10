@@ -57,7 +57,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "0.1.4"
+            _ver = "0.1.5"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=f"bold {USER_COLOR}")
@@ -82,6 +82,7 @@ SLASH_COMMANDS = [
     {"name": "/help", "desc": "show help"},
     {"name": "/clear", "desc": "clear conversation + usage"},
     {"name": "/summary", "desc": "summarize last implementation"},
+    {"name": "/export", "desc": "save transcript to markdown"},
     {"name": "/usage", "desc": "show token usage"},
     {"name": "/undo", "desc": "undo last file change"},
     {"name": "/logout", "desc": "clear saved API keys"},
@@ -1131,6 +1132,7 @@ _HELP_SECTIONS = [
         ("/help", "this overview"),
         ("/clear", "reset conversation + usage"),
         ("/summary", "summarize last implementation"),
+        ("/export", "save transcript [file.md]"),
         ("/usage", "show token usage"),
         ("/undo", "undo last file change"),
         ("/logout", "clear saved API keys"),
@@ -1401,6 +1403,15 @@ def show_summary(summary, trace=None):
             console.print(line)
         console.print()
     print_response(console, summary)
+    console.print()
+
+
+def show_export(path):
+    console.print()
+    line = Text()
+    line.append("  Exported to ", style="dim")
+    line.append(str(path), style="bold white")
+    console.print(line)
     console.print()
 
 

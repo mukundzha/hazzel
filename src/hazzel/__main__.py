@@ -49,7 +49,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "0.1.4"
+            return "0.1.5"
 
 
 VERSION = _version()
@@ -221,6 +221,19 @@ def main(argv=None):
             continue
         if user_input.strip().lower() in ["/summary", "/s", "summary"]:
             ui.show_summary(_last_summary, _last_trace)
+            continue
+        if low_in == "export" or low_in.startswith("/export"):
+            raw = user_input.strip()
+            arg = raw[7:].strip() if raw.startswith("/") else raw[6:].strip()
+            from hazzel.export import export_transcript as _export
+            ok, out = _export(
+                messages, _last_summary, _last_trace, agent.get_session_usage(),
+                config.get_current_display_name(), arg or None,
+            )
+            if ok:
+                ui.show_export(out)
+            else:
+                ui.show_error(out)
             continue
         if user_input.strip().lower() in ["/usage", "/u", "usage"]:
             ui.show_usage(agent.get_session_usage(), agent.get_last_turn_usage())
