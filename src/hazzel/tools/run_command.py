@@ -9,6 +9,32 @@ from ..config import PROJECT_ROOT, resolve_project_path
 
 _SHELL_OPS = {";", "&&", "||", "|"}
 
+_SAFE_BINARIES = frozenset({"ls", "pwd", "echo", "cat", "head", "tail", "wc", "file", "uname", "whoami", "date", "basename", "dirname", "realpath", "printf", "true"})
+_SAFE_GIT_SUBCOMMANDS = frozenset({"status", "diff", "log"})
+
+
+def is_safe_command(command):
+    text = (command or "").strip()
+    if not text:
+        return False
+    if "\n" in text or "\r" in text:
+        return False
+    for marker in (";", "&&", "||", "|", "`", "$(", ">", "<"):
+        if marker in text:
+            return False
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        return False
+    if not tokens:
+        return False
+    first = tokens[0].rsplit("/", 1)[-1]
+    if first in _SAFE_BINARIES:
+        return True
+    if first == "git" and len(tokens) >= 2 and tokens[1] in _SAFE_GIT_SUBCOMMANDS:
+        return True
+    return False
+
 
 def _checkpoint_rm_targets(command):
     try:
@@ -38,7 +64,7 @@ def _checkpoint_rm_targets(command):
 
 def run_command(command, preapproved=False):
 
-    if not preapproved:
+    if not preapproved and not is_safe_command(command):
         if not ui.confirm(f"Hazzel wants to run: {command}\nAllow?"):
             return "Command cancelled by user"
 

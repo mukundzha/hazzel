@@ -96,7 +96,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Run a shell command from the project root.",
+            "description": "Run a shell command from the project root. Read-only cmds (ls, pwd, cat, head, tail, echo, wc, file, git status/diff/log) run without approval; all else asks.",
             "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]},
         },
     },
