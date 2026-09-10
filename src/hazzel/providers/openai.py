@@ -18,34 +18,54 @@ def _extract_usage(resp):
 
 
 class OpenAIProvider(BaseProvider):
-    def __init__(self, api_key, model):
+    provider_name = "OpenAI"
+    base_url = None
+
+    def __init__(self, api_key, model, base_url=None, provider_name=None):
         from openai import OpenAI
         if not api_key:
-            raise RuntimeError("Unable to connect to OpenAI\n\nCheck your API key and try again.")
-        self.client = OpenAI(api_key=api_key)
+            raise RuntimeError(f"Unable to connect to {provider_name or self.provider_name}\n\nCheck your API key and try again.")
+        if provider_name:
+            self.provider_name = provider_name
+        if base_url:
+            self.base_url = base_url
+        kwargs = {"api_key": api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        self.client = OpenAI(**kwargs)
         self.model = model
+
+    def _create_kwargs(self, messages, tools, stream=False):
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "max_tokens": 10000,
+        }
+        if self.provider_name == "OpenAI":
+            kwargs["prompt_cache_key"] = "hazzel-v1"
+        if stream:
+            kwargs["stream"] = True
+        return kwargs
+
+    def _connect_error(self, e):
+        msg = str(e).lower()
+        if "401" in msg or "auth" in msg or "api_key" in msg or "unauthorized" in msg:
+            raise RuntimeError(f"Unable to connect to {self.provider_name}\n\nCheck your API key and try again.") from e
+        if "model" in msg and ("not found" in msg or "invalid" in msg):
+            raise RuntimeError(f"Invalid model: {self.model}") from e
+        raise RuntimeError(f"Unable to connect to {self.provider_name}: {e}") from e
 
     def chat(self, messages, tools):
         try:
             resp = call_with_backoff(
-                "OpenAI",
-                lambda: self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                    max_tokens=10000,
-                    prompt_cache_key="hazzel-v1",
-                ),
+                self.provider_name,
+                lambda: self.client.chat.completions.create(**self._create_kwargs(messages, tools)),
             )
         except RuntimeError:
             raise
         except Exception as e:
-            msg = str(e).lower()
-            if "401" in msg or "auth" in msg or "api_key" in msg or "unauthorized" in msg:
-                raise RuntimeError("Unable to connect to OpenAI\n\nCheck your API key and try again.") from e
-            if "model" in msg and ("not found" in msg or "invalid" in msg):
-                raise RuntimeError(f"Invalid model: {self.model}") from e
-            raise RuntimeError(f"Unable to connect to OpenAI: {e}") from e
+            self._connect_error(e)
         choice = resp.choices[0].message
         tool_calls = []
         if getattr(choice, "tool_calls", None):
@@ -57,15 +77,8 @@ class OpenAIProvider(BaseProvider):
     def stream(self, messages, tools, on_token=None):
         try:
             chunks = call_with_backoff(
-                "OpenAI",
-                lambda: self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                    max_tokens=10000,
-                    prompt_cache_key="hazzel-v1",
-                    stream=True,
-                ),
+                self.provider_name,
+                lambda: self.client.chat.completions.create(**self._create_kwargs(messages, tools, stream=True)),
             )
         except Exception:
             return super().stream(messages, tools, on_token)
@@ -114,7 +127,7 @@ class OpenAIProvider(BaseProvider):
                 raise
             msg = str(error).lower()
             if "401" in msg or "auth" in msg or "unauthorized" in msg:
-                raise RuntimeError("Unable to connect to OpenAI\n\nCheck your API key and try again.") from error
+                raise RuntimeError(f"Unable to connect to {self.provider_name}\n\nCheck your API key and try again.") from error
         tool_calls = []
         for idx in sorted(acc):
             entry = acc[idx]

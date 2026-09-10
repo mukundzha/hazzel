@@ -19,6 +19,7 @@ from hazzel.tools.git_branch import git_branch
 from hazzel.tools.git_commit import git_commit
 from hazzel.tools.git_diff import git_diff
 from hazzel.tools.git_status import git_status
+from hazzel.tools.github_pr import github_pr
 from hazzel.tools.list_files import list_files
 from hazzel.tools.read_file import read_file
 from hazzel.tools.run_command import run_command
@@ -34,8 +35,8 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 10 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
-Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools.
+Tools: you have EXACTLY these 11 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
 
@@ -132,11 +133,28 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "name": {"type": "string"}}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_pr",
+            "description": "GitHub PRs via gh: list, view, diff, checks (read-only) and comment, create, merge, close (ask approval). Needs gh auth login.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string"},
+                    "number": {"type": "string"},
+                    "title": {"type": "string"},
+                    "body": {"type": "string"},
+                    "method": {"type": "string"},
+                },
+            },
+        },
+    },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -168,6 +186,11 @@ def _plan_blocked(tool_name, arguments):
         if isinstance(arguments, dict):
             action = str(arguments.get("action", "") or "current").lower()
         return action not in ("current", "list", "log")
+    if tool_name == "github_pr":
+        action = ""
+        if isinstance(arguments, dict):
+            action = str(arguments.get("action", "") or "list").lower()
+        return action not in ("list", "view", "diff", "checks")
     return False
 
 _TOOL_ALIASES = {
@@ -199,6 +222,9 @@ _TOOL_ALIASES = {
     "diff": "git_diff",
     "commit": "git_commit",
     "branch": "git_branch",
+    "pr": "github_pr",
+    "pull_request": "github_pr",
+    "pullrequest": "github_pr",
 }
 
 
@@ -247,6 +273,12 @@ def _coerce_tool_args(tool_name, arguments):
             if args.get(k) is not None:
                 args["command"] = args[k]
                 break
+    elif tool_name == "github_pr":
+        for k in ("pr", "id", "target"):
+            if "number" not in args and args.get(k) is not None:
+                args["number"] = args[k]
+                break
+        args.setdefault("action", "list")
     return args
 
 
@@ -398,6 +430,8 @@ def run_tool(tool_name, arguments):
             low = str(cmd).strip().lower()
             if low.startswith("git commit") or low.startswith("git push") or "reset --hard" in low or low.startswith("git clean"):
                 return "Blocked: use git_commit / git_branch tools instead of raw git writes. Destructive git (reset --hard, clean, --force) is disabled."
+            if "gh pr create" in low or "gh pr merge" in low or "gh pr comment" in low or "gh pr close" in low:
+                return "Blocked: use github_pr tool instead of raw `gh pr` writes."
             return run_command(cmd)
         if tool_name == "git_status":
             return git_status()
@@ -407,6 +441,14 @@ def run_tool(tool_name, arguments):
             return git_commit(arguments.get("message"), arguments.get("files"))
         if tool_name == "git_branch":
             return git_branch(arguments.get("action", "current") or "current", arguments.get("name", "") or "")
+        if tool_name == "github_pr":
+            return github_pr(
+                arguments.get("action", "list") or "list",
+                arguments.get("number", "") or "",
+                arguments.get("title", "") or "",
+                arguments.get("body", "") or "",
+                arguments.get("method", "squash") or "squash",
+            )
         return f"Unknown tool: {tool_name}. Valid tools: {', '.join(sorted(TOOL_NAMES))}."
     except KeyboardInterrupt:
         raise
@@ -438,7 +480,7 @@ def _build_summary_inner(trace, response_content, user_input):
         result = t["result"]
         if name == "read_file" and success and not t.get("cached"):
             inspected.append(detail)
-        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch") and success and not t.get("cached"):
+        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch", "github_pr") and success and not t.get("cached"):
             inspected.append(detail or name)
         elif name == "write_file" and success:
             created.append(detail)
@@ -1096,6 +1138,9 @@ def try_fast_path(messages, user_input):
     if re.match(r"^(?:git\s+)?branch[.!?]*$", low):
         result = run_tool("git_branch", {"action": "list"})
         return _fast_reply(messages, user_input, str(result), _fast_trace("git_branch", "list", str(result), True))
+    if re.match(r"^(?:gh\s+)?pr\s+list[.!?]*$|^list\s+(open\s+)?(prs|pull requests)[.!?]*$", low):
+        result = run_tool("github_pr", {"action": "list"})
+        return _fast_reply(messages, user_input, str(result), _fast_trace("github_pr", "list", str(result), True))
 
     match = re.match(r"^(?:(?:now|please)\s+)?(?:run|execute)\s+(.+?)\s*$", text, re.IGNORECASE)
     if match:
@@ -1225,8 +1270,12 @@ def run(messages, user_input):
 
             detail = arguments.get(
                 "pattern",
-                arguments.get("path", arguments.get("command", arguments.get("message", arguments.get("action", "")))),
+                arguments.get("path", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", ""))))),
             )
+            if tool_name == "github_pr" and isinstance(arguments, dict):
+                sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
+                if sub:
+                    detail = f"{arguments.get('action', 'list')} {sub}".strip()
 
             cache_key = None
             cached = False
@@ -1270,6 +1319,7 @@ def run(messages, user_input):
                 "write cancelled",
                 "commit cancelled",
                 "branch cancelled",
+                "pr cancelled",
                 "blocked:",
                 "not a git repo",
             ))

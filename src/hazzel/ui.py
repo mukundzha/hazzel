@@ -79,6 +79,7 @@ SLASH_COMMANDS = [
     {"name": "/pull", "desc": "pull remote changes"},
     {"name": "/sync", "desc": "pull then push"},
     {"name": "/log", "desc": "recent commits"},
+    {"name": "/pr", "desc": "list / view / create PRs"},
     {"name": "/help", "desc": "show help"},
     {"name": "/clear", "desc": "clear conversation + usage"},
     {"name": "/summary", "desc": "summarize last implementation"},
@@ -1099,6 +1100,105 @@ def show_git_log(body):
     rule()
 
 
+def show_pr_list(body):
+    rule()
+    console.print(Text("  Pull requests  ·  open", style="bold white"))
+    if not body or body.strip().lower() in ("no open pull requests.", "(clean)", "(empty)"):
+        console.print(Text("  No open pull requests.", style=DIM_COLOR))
+        rule()
+        return
+    table = Table(show_header=False, box=None, pad_edge=False, padding=(0, 1, 0, 0))
+    table.add_column(overflow="fold", width=6, justify="right")
+    table.add_column(overflow="fold", ratio=1)
+    table.add_column(overflow="fold", width=20)
+    for line in body.splitlines()[:20]:
+        parts = line.split("\t")
+        row = Text()
+        num = parts[0].strip() if parts else ""
+        title = parts[1].strip() if len(parts) > 1 else line.strip()
+        branch = parts[2].strip() if len(parts) > 2 else ""
+        table.add_row(
+            Text(f"#{num}", style=f"bold {USER_COLOR}"),
+            Text(title[:80], style="white"),
+            Text(branch[:20], style=DIM_COLOR),
+        )
+    console.print(table)
+    extra = len(body.splitlines()) - 20
+    if extra > 0:
+        console.print(Text(f"  …{extra} more", style=DIM_COLOR))
+    console.print(Text("  /pr view <n> · /pr diff <n> · /pr checks <n>", style=DIM_COLOR))
+    rule()
+
+
+def show_pr_view(body):
+    rule()
+    console.print(Text("  Pull request", style="bold white"))
+    if not body or body.strip() in ("(empty)", "(clean)"):
+        console.print(Text("  Not found.", style=DIM_COLOR))
+    else:
+        for line in body.splitlines()[:80]:
+            console.print(Text(f"  {line[:160]}", style="white" if line.strip() else DIM_COLOR))
+        if len(body.splitlines()) > 80:
+            console.print(Text(f"  …{len(body.splitlines()) - 80} more lines", style=DIM_COLOR))
+    rule()
+
+
+def show_pr_checks(body):
+    rule()
+    console.print(Text("  PR checks", style="bold white"))
+    if not body or body.strip() in ("(empty)", "(clean)", "No checks reported."):
+        console.print(Text("  No checks reported.", style=DIM_COLOR))
+    else:
+        for line in body.splitlines()[:30]:
+            low = line.lower()
+            if "pass" in low or "success" in low:
+                color = SUCCESS_COLOR
+            elif "fail" in low:
+                color = ERROR_COLOR
+            else:
+                color = "white"
+            console.print(Text(f"  {line[:140]}", style=color))
+    rule()
+
+
+def show_pr_result(result):
+    text = Text()
+    low = (result or "").lower()
+    if any(k in low for k in ("cancelled", "nothing", "not a git", "not installed", "not authenticated", "tool error", "invalid")):
+        text.append("  ○ ", style=f"bold {DIM_COLOR}")
+        text.append(result, style="dim")
+    else:
+        text.append("  ✓ ", style=f"bold {SUCCESS_COLOR}")
+        first = (result or "").strip().splitlines()[0][:160] if (result or "").strip() else "Done."
+        text.append(first, style="bold white")
+        rest = (result or "").strip().splitlines()[1:3]
+        for line in rest:
+            if line.strip().startswith("https://"):
+                console.print(text)
+                console.print(Text(f"  {line.strip()}", style=f"{USER_COLOR} underline"))
+                console.print()
+                return
+    console.print(text)
+    console.print()
+
+
+def show_pr_suggest(title, body="", fallback=False):
+    rule()
+    title_row = Text()
+    title_row.append("  Suggested PR", style="bold white")
+    if fallback:
+        title_row.append("  ·  offline draft", style=DIM_COLOR)
+    console.print(title_row)
+    row = Text()
+    row.append("  ❯ ", style=f"bold {HAZZEL_COLOR}")
+    row.append(title, style="bold white")
+    console.print(row)
+    if (body or "").strip():
+        console.print(Text(f"  {(body or '').strip().splitlines()[0][:120]}", style=DIM_COLOR))
+    console.print(Text("  [y] create · [e] edit · [n] cancel", style=DIM_COLOR))
+    rule()
+
+
 def show_model_selected(display_name, provider_display):
     text = Text()
     text.append("  ✓ ", style=f"bold {SUCCESS_COLOR}")
@@ -1152,11 +1252,12 @@ _HELP_SECTIONS = [
         ("/pull", "pull remote changes"),
         ("/sync", "pull then push"),
         ("/log", "recent commits"),
+        ("/pr", "list / view / checks / create / merge / close"),
     ]),
 ]
 
 
-_HELP_FOOT = "Models  ·  Groq · OpenAI · Mistral · Anthropic  —  /model to switch"
+_HELP_FOOT = "Models  ·  Groq · OpenAI · Mistral · Anthropic · Gemini · DeepSeek · OpenRouter · Ollama  —  /model to switch"
 _STAR_LINE = "If Hazzel helps, star us: github.com/mukundzha/hazzel"
 
 

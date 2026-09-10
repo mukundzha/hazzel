@@ -30,6 +30,7 @@ MODEL_CATALOG = [
     {"display_name": "GPT-5.6 Sol", "id": "gpt-5.6-sol", "provider": "openai", "provider_display": "OpenAI"},
     {"display_name": "GPT-5.6 Terra", "id": "gpt-5.6-terra", "provider": "openai", "provider_display": "OpenAI"},
     {"display_name": "GPT-5.6 Luna", "id": "gpt-5.6-luna", "provider": "openai", "provider_display": "OpenAI"},
+    {"display_name": "GPT-5.3 Codex", "id": "gpt-5.3-codex", "provider": "openai", "provider_display": "OpenAI"},
     {"display_name": "GPT-5", "id": "gpt-5", "provider": "openai", "provider_display": "OpenAI"},
     {"display_name": "GPT-5 Mini", "id": "gpt-5-mini", "provider": "openai", "provider_display": "OpenAI"},
     {"display_name": "GPT-4.1", "id": "gpt-4.1", "provider": "openai", "provider_display": "OpenAI"},
@@ -49,6 +50,18 @@ MODEL_CATALOG = [
     {"display_name": "Leanstral 1.5", "id": "leanstral-1.5", "provider": "mistral", "provider_display": "Mistral"},
     {"display_name": "GPT OSS 120B", "id": "openai/gpt-oss-120b", "provider": "groq", "provider_display": "Groq"},
     {"display_name": "GPT OSS 20B", "id": "openai/gpt-oss-20b", "provider": "groq", "provider_display": "Groq"},
+    {"display_name": "Kimi K2 Instruct", "id": "moonshotai/kimi-k2-instruct", "provider": "groq", "provider_display": "Groq"},
+    {"display_name": "Llama 4 Scout", "id": "llama-4-scout-17b-16e-instruct", "provider": "groq", "provider_display": "Groq"},
+    {"display_name": "Qwen3 32B", "id": "qwen3-32b", "provider": "groq", "provider_display": "Groq"},
+    {"display_name": "Gemini 3.8 Flash", "id": "gemini-3.8-flash", "provider": "gemini", "provider_display": "Gemini"},
+    {"display_name": "Gemini 3.5 Flash-Lite", "id": "gemini-3.5-flash-lite", "provider": "gemini", "provider_display": "Gemini"},
+    {"display_name": "DeepSeek V4 Flash", "id": "deepseek-v4-flash", "provider": "deepseek", "provider_display": "DeepSeek"},
+    {"display_name": "DeepSeek V4 Pro", "id": "deepseek-v4-pro", "provider": "deepseek", "provider_display": "DeepSeek"},
+    {"display_name": "GPT OSS 120B (OpenRouter)", "id": "openai/gpt-oss-120b", "provider": "openrouter", "provider_display": "OpenRouter"},
+    {"display_name": "Claude Opus 5 (OpenRouter)", "id": "anthropic/claude-opus-5", "provider": "openrouter", "provider_display": "OpenRouter"},
+    {"display_name": "Llama 3.1 8B (local)", "id": "llama3.1:8b", "provider": "ollama", "provider_display": "Ollama"},
+    {"display_name": "Qwen Coder 7B (local)", "id": "qwen2.5-coder:7b", "provider": "ollama", "provider_display": "Ollama"},
+    {"display_name": "Qwen3 8B (local)", "id": "qwen3:8b", "provider": "ollama", "provider_display": "Ollama"},
 ]
 
 PROVIDER_ENV = {
@@ -56,6 +69,10 @@ PROVIDER_ENV = {
     "openai": "OPENAI_API_KEY",
     "groq": "GROQ_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "ollama": None,
 }
 
 PROVIDER_DISPLAY = {
@@ -63,7 +80,13 @@ PROVIDER_DISPLAY = {
     "openai": "OpenAI",
     "groq": "Groq",
     "anthropic": "Anthropic",
+    "gemini": "Gemini",
+    "deepseek": "DeepSeek",
+    "openrouter": "OpenRouter",
+    "ollama": "Ollama",
 }
+
+KEYLESS_PROVIDERS = frozenset({"ollama"})
 
 _model = "openai/gpt-oss-120b"
 _provider = "groq"
@@ -78,6 +101,8 @@ MODEL = _model
 def get_api_key(provider=None):
     if provider is None:
         provider = _provider
+    if provider in KEYLESS_PROVIDERS:
+        return "ollama"
     env = PROVIDER_ENV.get(provider)
     if env:
         val = os.getenv(env)
@@ -113,7 +138,7 @@ def _load_config():
     provider = data.get("provider")
     model = data.get("model")
     if isinstance(provider, str) and isinstance(model, str) and provider in PROVIDER_ENV:
-        valid = any(m["id"] == model and m["provider"] == provider for m in MODEL_CATALOG)
+        valid = provider in KEYLESS_PROVIDERS or any(m["id"] == model and m["provider"] == provider for m in MODEL_CATALOG)
         if not valid:
             _provider = "groq"
             _model = "openai/gpt-oss-120b"
@@ -275,6 +300,18 @@ def set_plan_enabled(enabled):
 
 
 def get_catalog():
+    try:
+        from .providers.ollama import fetch_local_models
+        known = {m["id"] for m in MODEL_CATALOG}
+        extra = [
+            {"display_name": f"{name} (local)", "id": name, "provider": "ollama", "provider_display": "Ollama"}
+            for name in fetch_local_models()
+            if name not in known
+        ]
+        if extra:
+            return MODEL_CATALOG + extra
+    except Exception:
+        pass
     return MODEL_CATALOG
 
 

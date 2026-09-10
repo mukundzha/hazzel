@@ -22,6 +22,10 @@ def handle_model_command():
     selected = ui.select_model(catalog, current)
     if selected is None:
         return
+    if selected["provider"] in config.KEYLESS_PROVIDERS:
+        config.set_model(selected["provider"], selected["id"], selected["display_name"])
+        ui.show_model_selected(selected["display_name"], selected.get("provider_display", selected["provider"]))
+        return
     existing = config.get_api_key(selected["provider"])
     if existing and existing.strip():
         config.set_model(selected["provider"], selected["id"], selected["display_name"])
@@ -180,6 +184,40 @@ def main(argv=None):
         if low_in in ("/sync", "sync"):
             from hazzel.tools.git_branch import git_branch as _gb
             ui.show_git_commit(_gb("sync"))
+            continue
+        if low_in == "/pr" or low_in.startswith("/pr ") or low_in == "pr":
+            from hazzel.tools.github_pr import github_pr as _pr
+            raw = user_input.strip()
+            rest = (raw[3:].strip() if raw.startswith("/") else raw[2:].strip())
+            parts = rest.split()
+            if not parts:
+                ui.show_pr_list(_pr("list"))
+                continue
+            sub = parts[0].lower()
+            if sub in ("list", "ls"):
+                ui.show_pr_list(_pr("list"))
+            elif sub in ("view", "show"):
+                ui.show_pr_view(_pr("view", parts[1] if len(parts) > 1 else ""))
+            elif sub == "diff":
+                ui.show_pr_view(_pr("diff", parts[1] if len(parts) > 1 else ""))
+            elif sub in ("checks", "check", "ci"):
+                ui.show_pr_checks(_pr("checks", parts[1] if len(parts) > 1 else ""))
+            elif sub == "create":
+                title = rest[len(parts[0]):].strip().strip("\"'")
+                ui.show_pr_result(_pr("create", title=title))
+            elif sub == "merge":
+                num = parts[1] if len(parts) > 1 and parts[1].lstrip("#").isdigit() else ""
+                ui.show_pr_result(_pr("merge", number=num))
+            elif sub == "close":
+                ui.show_pr_result(_pr("close", number=parts[1] if len(parts) > 1 else ""))
+            elif sub == "comment":
+                num = parts[1] if len(parts) > 1 else ""
+                cbody = rest.split(num, 1)[1].strip().strip("\"'") if num else ""
+                ui.show_pr_result(_pr("comment", number=num, body=cbody))
+            elif parts[0].lstrip("#").isdigit():
+                ui.show_pr_view(_pr("view", parts[0]))
+            else:
+                ui.show_pr_result(_pr("create", title=rest.strip().strip("\"'")))
             continue
         parts_prove = user_input.strip().lower().split()
         if parts_prove and parts_prove[0] == "/prove":
