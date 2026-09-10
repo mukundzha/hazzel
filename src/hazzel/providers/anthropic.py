@@ -1,5 +1,5 @@
 import json
-from .base import BaseProvider, ChatResponse, ToolCall, Usage, call_with_backoff
+from .base import BaseProvider, ChatResponse, ToolCall, Usage, call_with_backoff, extract_reasoning
 
 
 def _extract_usage(resp):
@@ -113,7 +113,7 @@ class AnthropicProvider(BaseProvider):
                 args = getattr(block, "input", {}) or {}
                 args_json = json.dumps(args)
                 tool_calls.append(ToolCall(id=getattr(block, "id", ""), name=getattr(block, "name", ""), arguments=args_json))
-        return ChatResponse(content=content_text if content_text else None, tool_calls=tool_calls, usage=_extract_usage(resp))
+        return ChatResponse(content=content_text if content_text else None, tool_calls=tool_calls, usage=_extract_usage(resp), reasoning=extract_reasoning(resp))
 
     def stream(self, messages, tools, on_token=None):
         system, anth_messages = _messages_to_anthropic(messages)
@@ -133,6 +133,7 @@ class AnthropicProvider(BaseProvider):
         except Exception:
             return super().stream(messages, tools, on_token)
         parts = []
+        think = []
         acc = {}
         usage = None
         try:
@@ -147,7 +148,9 @@ class AnthropicProvider(BaseProvider):
                     idx = getattr(event, "index", 0) or 0
                     delta = getattr(event, "delta", None)
                     dtype = getattr(delta, "type", None) if delta is not None else None
-                    if dtype == "text_delta":
+                    if dtype == "thinking_delta":
+                        think.append(getattr(delta, "thinking", "") or "")
+                    elif dtype == "text_delta":
                         text = getattr(delta, "text", "") or ""
                         if text:
                             parts.append(text)
@@ -182,4 +185,5 @@ class AnthropicProvider(BaseProvider):
             entry = acc[idx]
             if entry["name"]:
                 tool_calls.append(ToolCall(id=entry["id"] or f"call_{idx}", name=entry["name"], arguments=entry["args"] or "{}"))
-        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage)
+        thinking = "".join(think).strip() or None
+        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage, reasoning=thinking)

@@ -1,4 +1,4 @@
-from .base import BaseProvider, ChatResponse, ToolCall, Usage, call_with_backoff
+from .base import BaseProvider, ChatResponse, ToolCall, Usage, call_with_backoff, extract_reasoning
 
 
 def _extract_usage(resp):
@@ -52,7 +52,7 @@ class OpenAIProvider(BaseProvider):
             for tc in choice.tool_calls:
                 tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=tc.function.arguments or "{}"))
         content = getattr(choice, "content", None)
-        return ChatResponse(content=content, tool_calls=tool_calls, usage=_extract_usage(resp))
+        return ChatResponse(content=content, tool_calls=tool_calls, usage=_extract_usage(resp), reasoning=extract_reasoning(choice))
 
     def stream(self, messages, tools, on_token=None):
         try:
@@ -70,6 +70,7 @@ class OpenAIProvider(BaseProvider):
         except Exception:
             return super().stream(messages, tools, on_token)
         parts = []
+        think = []
         acc = {}
         usage = None
         try:
@@ -86,6 +87,9 @@ class OpenAIProvider(BaseProvider):
                 delta = getattr(choices[0], "delta", None)
                 if delta is None:
                     continue
+                reason = extract_reasoning(delta)
+                if reason:
+                    think.append(reason)
                 text = getattr(delta, "content", None)
                 if text:
                     parts.append(text)
@@ -116,4 +120,5 @@ class OpenAIProvider(BaseProvider):
             entry = acc[idx]
             if entry["name"]:
                 tool_calls.append(ToolCall(id=entry["id"] or f"call_{idx}", name=entry["name"], arguments=entry["args"] or "{}"))
-        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage)
+        thinking = "".join(think).strip() or None
+        return ChatResponse(content="".join(parts) or None, tool_calls=tool_calls, usage=usage, reasoning=thinking)

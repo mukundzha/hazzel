@@ -12,6 +12,29 @@ def test_normalize_namespaced():
     assert agent._normalize_tool_name("nope_nothing") is None
 
 
+def test_extract_reasoning_content():
+    msg = MagicMock(reasoning_content="  why this works  ", content="answer")
+    assert base.extract_reasoning(msg) == "  why this works  "
+
+
+def test_extract_reasoning_thinking_blocks():
+    think = MagicMock(type="thinking", thinking="step one")
+    text = MagicMock(type="text", text="hi")
+    resp = MagicMock(content=[think, text])
+    assert base.extract_reasoning(resp) == "step one"
+
+
+def test_extract_reasoning_absent():
+    assert base.extract_reasoning(MagicMock(content="plain", reasoning_content=None)) is None
+    assert ChatResponse(content="x").reasoning is None
+    agent._note_reasoning("  ")
+    assert agent.get_last_reasoning() is None
+    agent._note_reasoning("first thought")
+    agent._note_reasoning("second thought")
+    assert agent.get_last_reasoning() == "first thought\n\nsecond thought"
+    agent._turn_reasoning.clear()
+
+
 def test_parse_packages():
     assert agent._parse_package_names("tabulate and colorama") == ["tabulate", "colorama"]
     assert agent._parse_package_names("rich[all]") == ["rich[all]"]

@@ -339,6 +339,7 @@ def _safe_stream_chat(provider, task_messages, tools):
     except Exception:
         return _safe_chat(provider, task_messages, tools)
     _normalize_response_tools(response)
+    _note_reasoning(getattr(response, "reasoning", None))
     if getattr(response, "tool_calls", None):
         try:
             ui.show_loader("Working…")
@@ -555,6 +556,11 @@ def get_last_turn_usage():
     return dict(_last_turn_usage)
 
 
+def get_last_reasoning():
+    joined = "\n\n".join(_turn_reasoning).strip()
+    return joined or None
+
+
 def reset_usage():
     _session_usage.update({"input": 0, "output": 0, "cached": 0, "calls": 0, "estimated": 0})
     _last_turn_usage.update({"input": 0, "output": 0, "cached": 0, "calls": 0, "estimated": False})
@@ -594,6 +600,7 @@ def reset_conversation_state():
     reset_usage()
     global _LAST_TARGET
     _LAST_TARGET = None
+    _turn_reasoning.clear()
 
 
 def _note_target(target):
@@ -604,6 +611,14 @@ def _note_target(target):
 
 def _looks_like_path(target):
     return "." in target or "/" in target
+
+
+_turn_reasoning = []
+
+
+def _note_reasoning(text):
+    if (text or "").strip():
+        _turn_reasoning.append(text.strip())
 
 
 def _update_last_target(trace):
@@ -1101,6 +1116,7 @@ def run(messages, user_input):
 
     trace = []
     seen_reads = set()
+    _turn_reasoning.clear()
     _last_turn_usage.update({"input": 0, "output": 0, "cached": 0, "calls": 0, "estimated": False})
 
     ui.begin_turn()

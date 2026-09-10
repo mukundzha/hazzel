@@ -68,6 +68,22 @@ class ChatResponse:
     content: str | None
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: Usage | None = None
+    reasoning: str | None = None
+
+
+def extract_reasoning(obj):
+    try:
+        text = getattr(obj, "reasoning_content", None)
+        if isinstance(text, str) and text.strip():
+            return text
+        parts = []
+        for block in getattr(obj, "content", None) or []:
+            if getattr(block, "type", None) in ("thinking", "redacted_thinking"):
+                parts.append(getattr(block, "thinking", "") or "")
+        joined = "\n".join(p for p in parts if p).strip()
+        return joined or None
+    except Exception:
+        return None
 
 
 class BaseProvider(ABC):

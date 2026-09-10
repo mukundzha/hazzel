@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-10
+### Added
+- Collapsible thinking log: model reasoning (Groq/OpenAI `reasoning_content`, Anthropic thinking blocks) hides behind an Enter-to-expand prompt after each reply.
+- `/init [file]`: generate an `AGENTS.md` project map (structure, stack, file counts) with diff preview and approval.
+### Fixed
+- Token streaming no longer paints a live preview, so replies can't appear twice (streamed tail + final print). The loader stays up until the single formatted reply prints.
+
 ## [0.1.6] - 2026-09-10
 ### Added
 - `/copy [code]`: copy last reply (or just its last code block) via pbcopy/wl-copy/xclip/xsel.

@@ -51,7 +51,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "0.1.6"
+            return "0.1.7"
 
 
 VERSION = _version()
@@ -269,6 +269,16 @@ def main(argv=None):
                 _last_summary = None
             _last_response = response
             ui.show_hazzel_message(response)
+            ui.show_reasoning(agent.get_last_reasoning())
+            continue
+        if low_in == "init" or low_in.startswith("/init"):
+            raw = user_input.strip()
+            arg = (raw[5:].strip() if raw.startswith("/") else raw[4:].strip()).strip("\"'") or "AGENTS.md"
+            from hazzel.init_map import build_map
+            content = build_map(config.PROJECT_ROOT)
+            result = agent.run_tool("write_file", {"path": arg, "content": content})
+            _last_response = result
+            ui.show_hazzel_message(result)
             continue
         if low_in == "copy" or low_in.startswith("/copy"):
             raw = user_input.strip()
@@ -333,6 +343,7 @@ def main(argv=None):
             _last_summary = None
         _last_response = response
         ui.show_hazzel_message(response)
+        ui.show_reasoning(agent.get_last_reasoning())
 
 
 if __name__ == "__main__":

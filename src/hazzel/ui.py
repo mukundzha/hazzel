@@ -57,7 +57,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "0.1.6"
+            _ver = "0.1.7"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=f"bold {USER_COLOR}")
@@ -84,6 +84,7 @@ SLASH_COMMANDS = [
     {"name": "/summary", "desc": "summarize last implementation"},
     {"name": "/export", "desc": "save transcript to markdown"},
     {"name": "/copy", "desc": "copy last reply [code]"},
+    {"name": "/init", "desc": "generate AGENTS.md map"},
     {"name": "/retry", "desc": "re-run last message"},
     {"name": "/usage", "desc": "show token usage"},
     {"name": "/undo", "desc": "undo last file change"},
@@ -653,34 +654,12 @@ def _resume_loader(was_active, text="Working…"):
         show_loader(text)
 
 
-_stream_live = None
 _stream_buffer = ""
 
 
-def _is_stream_tty():
-    try:
-        return sys.stdin.isatty() and sys.stdout.isatty()
-    except Exception:
-        return False
-
-
 def begin_stream():
-    global _stream_live, _stream_buffer
-    hide_loader()
+    global _stream_buffer
     _stream_buffer = ""
-    if not _is_stream_tty():
-        _stream_live = False
-        return
-    try:
-        _stream_live = Live(
-            Text("", style="white"),
-            console=console,
-            refresh_per_second=12,
-            transient=True,
-        )
-        _stream_live.start()
-    except Exception:
-        _stream_live = False
 
 
 def push_stream_token(token):
@@ -688,28 +667,12 @@ def push_stream_token(token):
     if not token:
         return
     _stream_buffer += token
-    if _stream_live is None or _stream_live is False:
-        return
-    try:
-        tail = _stream_buffer[-3000:]
-        _stream_live.update(Text(tail, style="white"))
-    except Exception:
-        pass
 
 
 def end_stream():
-    global _stream_live, _stream_buffer
+    global _stream_buffer
     buf = _stream_buffer
     _stream_buffer = ""
-    if _stream_live is None or _stream_live is False:
-        _stream_live = None
-        return buf
-    try:
-        _stream_live.stop()
-    except Exception:
-        pass
-    finally:
-        _stream_live = None
     return buf
 
 
@@ -722,11 +685,48 @@ def end_turn():
     hide_loader()
 
 
+def _read_expand_key():
+    fd = sys.stdin.fileno()
+    try:
+        import select
+        import termios
+        import tty
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            termios.tcflush(fd, termios.TCIFLUSH)
+            ready, _, _ = select.select([fd], [], [], 30)
+            if not ready:
+                return False
+            return _read_key(fd) in ("\r", "\n")
+        finally:
+            try:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            except OSError:
+                pass
+    except OSError:
+        return False
+
+
 def show_hazzel_message(message):
     hide_loader()
     if not message or not message.strip():
         return
     print_response(console, message)
+
+
+def show_reasoning(reasoning):
+    text = (reasoning or "").strip()
+    if not text:
+        return
+    if not sys.stdin.isatty():
+        console.print(Text(text, style="dim"))
+        console.print()
+        return
+    console.print(Text(f"  … thinking ({len(text.splitlines())} lines) — Enter to expand, any other key to skip", style="dim"))
+    if _read_expand_key():
+        console.print(Text(text, style="dim"))
+        console.print()
 
 
 def _short_detail(detail: str, limit: int = 62) -> str:
@@ -1136,6 +1136,7 @@ _HELP_SECTIONS = [
         ("/summary", "summarize last implementation"),
         ("/export", "save transcript [file.md]"),
         ("/copy", "copy last reply [code]"),
+        ("/init", "generate AGENTS.md map"),
         ("/retry", "re-run last message"),
         ("/usage", "show token usage"),
         ("/undo", "undo last file change"),
