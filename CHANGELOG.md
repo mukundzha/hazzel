@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-11
+### Added
+- Windows support with no new dependencies: plain-prompt fallbacks where Unix raw-terminal menus can't run, ANSI enabled via console mode, Windows-safe process control and read-only commands.
+
 ## [1.3.1] - 2026-09-11
 ### Added
 - `/goal`: pin a session objective with acceptance criteria (persisted); every model turn steers toward it with a progress note.

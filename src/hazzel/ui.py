@@ -58,7 +58,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "1.3.1"
+            _ver = "1.3.2"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=DIM_COLOR)
@@ -260,7 +260,9 @@ def _highlight_mentions(buffer):
 
 
 def get_input(messages=None):
-    if not sys.stdin.isatty():
+    from . import wincompat
+
+    if not sys.stdin.isatty() or wincompat.is_windows():
         try:
             line = input()
         except (EOFError, KeyboardInterrupt):
@@ -723,7 +725,7 @@ def _read_expand_key():
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
             except OSError:
                 pass
-    except OSError:
+    except (OSError, ImportError):
         return False
 
 
@@ -1596,7 +1598,7 @@ def _show_help_tab():
                 pass
             sys.stdout.write("\x1b[?25h\x1b[?1049l")
             sys.stdout.flush()
-    except OSError:
+    except (OSError, ImportError):
         pass
 
 
@@ -1717,7 +1719,7 @@ def _show_usage_tab(session, last=None):
                 pass
             sys.stdout.write("\x1b[?25h\x1b[?1049l")
             sys.stdout.flush()
-    except OSError:
+    except (OSError, ImportError):
         _print_usage_inline(session, last)
 
 
@@ -1927,7 +1929,7 @@ def select_model(catalog, current_id=None):
                     pass
                 sys.stdout.write("\x1b[?25h\x1b[?12h")
                 sys.stdout.flush()
-        except OSError:
+        except (OSError, ImportError):
             pass
     console.print()
     console.print("  Select model", style="dim")
@@ -2027,7 +2029,7 @@ def prompt_api_key(existing=None):
                 sys.stdout.write("\x1b[?25h\x1b[?12h")
                 sys.stdout.flush()
             return key
-        except OSError:
+        except (OSError, ImportError):
             pass
     try:
         import getpass

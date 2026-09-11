@@ -20,6 +20,8 @@ hazzel
 
 Run `/model`, pick a provider, paste your key. Keys are stored at `~/.config/hazzel/config.json` with `0600` permissions. Env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`) work too. Ollama runs local models with no key (`OLLAMA_HOST` overrides the default `http://localhost:11434/v1`).
 
+Windows works too (PowerShell or cmd) — the full-screen menus gracefully fall back to plain prompts, no new dependencies.
+
 ```
 ❯ Fix the failing test in tests/test_agent.py
 
@@ -69,7 +71,7 @@ Switch anytime with `/model`.
 
 ## What it is not
 
-Early-stage (v1.3.1). Expect rough edges.
+Early-stage (v1.3.2). Expect rough edges.
 
 No deploys, no background agents, no session persistence across restarts. It doesn't replace your editor — it stays in the terminal next to it.
 

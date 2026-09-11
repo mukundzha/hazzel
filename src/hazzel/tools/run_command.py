@@ -1,15 +1,15 @@
-import os
 import shlex
-import signal
 import subprocess
 
 from .. import safety
 from .. import ui
+from .. import wincompat
 from ..config import PROJECT_ROOT, resolve_project_path
 
 _SHELL_OPS = {";", "&&", "||", "|"}
 
 _SAFE_BINARIES = frozenset({"ls", "pwd", "echo", "cat", "head", "tail", "wc", "file", "uname", "whoami", "date", "basename", "dirname", "realpath", "printf", "true"})
+_SAFE_WINDOWS_BINARIES = frozenset({"dir", "type", "cls", "ver", "echo"})
 _SAFE_GIT_SUBCOMMANDS = frozenset({"status", "diff", "log"})
 
 
@@ -30,6 +30,8 @@ def is_safe_command(command):
         return False
     first = tokens[0].rsplit("/", 1)[-1]
     if first in _SAFE_BINARIES:
+        return True
+    if wincompat.is_windows() and first.lower() in _SAFE_WINDOWS_BINARIES:
         return True
     if first == "git" and len(tokens) >= 2 and tokens[1] in _SAFE_GIT_SUBCOMMANDS:
         return True
@@ -79,24 +81,18 @@ def run_command(command, preapproved=False):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            start_new_session=True,
+            **wincompat.popen_kwargs(),
         )
         try:
             out, err = proc.communicate(timeout=30)
         except subprocess.TimeoutExpired:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except OSError:
-                pass
+            wincompat.kill_proc(proc)
             proc.wait()
             return "Command timed out after 30 seconds — split it into a smaller step or narrow its scope."
         result_stdout, result_stderr, returncode = out, err, proc.returncode
     except KeyboardInterrupt:
         if proc is not None:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except OSError:
-                pass
+            wincompat.kill_proc(proc)
             try:
                 proc.wait(timeout=5)
             except OSError:

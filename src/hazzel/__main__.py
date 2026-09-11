@@ -4,6 +4,7 @@ from hazzel import agent
 from hazzel import safety
 from hazzel import ui
 from hazzel import config
+from hazzel import wincompat
 from rich.console import Console
 
 console = Console()
@@ -62,7 +63,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "1.3.1"
+            return "1.3.2"
 
 
 VERSION = _version()
@@ -80,6 +81,7 @@ def main(argv=None):
     if args:
         ui.show_error(f"Unknown option: {args[0]}. Try --help.")
         return
+    wincompat.enable_ansi()
     ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
     if config.should_show_star_nudge():
         ui.show_star_nudge()
