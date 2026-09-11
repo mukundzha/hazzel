@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Added
 - `/review @file` reviews one file; `/review codebase` reviews staged plus unstaged together; scope shows in the result card.
+### Removed
+- Prompt history recall across restarts; multiline input (Ctrl+J, full paste) stays.
 
 ## [1.3.0] - 2026-09-11
 ### Added

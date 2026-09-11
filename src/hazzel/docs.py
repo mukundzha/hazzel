@@ -16,7 +16,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
             "2. Hazzel shows each step (read, edit, run) with a diff or prompt.",
             "3. Approve (y) or cancel (n). Nothing mutates without you.",
             "Smallest change wins: ask for one thing at a time for best results.",
-            "Up/Down recalls previous prompts (kept across restarts); Ctrl+J adds a newline, Enter sends; pasting keeps every line.",
+            "Ctrl+J adds a newline, Enter sends; pasting keeps every line.",
         ],
     ),
     (

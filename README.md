@@ -47,7 +47,7 @@ If you want the most feature-heavy agent, there are better options. If you want 
 - GitHub PRs via `gh`: `/pr` lists open PRs, `/pr view|diff|checks <n>` reads, `/pr comment|merge|close <n>` and `/pr create <title>` write (approval first, plan-mode read-only). Needs `gh auth login`.
 - Model thinking stays collapsed behind an Enter-to-expand prompt — peek only when curious.
 - Read the web: `fetch <url>` pulls public docs and references into context (read-only).
-- Input that keeps up: Up/Down recalls prompts across restarts, Ctrl+J for newlines, full multiline paste.
+- Multiline input: Ctrl+J for newlines, full multiline paste.
 - Extras: `/docs` prints the full usage guide, `/init` drafts an `AGENTS.md` project map, `/export` saves the transcript, `/copy` grabs the last reply, `/retry` re-runs your last message.
 - Streams responses with per-turn token usage (`/usage`).
 

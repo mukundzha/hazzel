@@ -230,14 +230,6 @@ def _clip_paste(paste):
     return text[:MAX_PASTE_CHARS]
 
 
-def _history_up(history, pos):
-    return max(0, min(pos, len(history)) - 1) if history else 0
-
-
-def _history_down(history, pos):
-    return min(len(history), pos + 1)
-
-
 MENTION_COLOR = "\x1b[1;94m"
 MENTION_RESET = "\x1b[0m"
 
@@ -300,14 +292,6 @@ def get_input(messages=None):
     m_dismissed = None
     m_cands = []
     m_total = 0
-    try:
-        from . import config as _cfg_hist
-
-        hist = _cfg_hist.load_input_history()
-    except OSError:
-        hist = []
-    h_pos = len(hist)
-    h_draft = ""
     try:
         tty.setraw(fd)
         termios.tcflush(fd, termios.TCIFLUSH)
@@ -402,9 +386,9 @@ def get_input(messages=None):
             except Exception:
                 _plan_bit = ""
             if tok:
-                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit} · ↑ history · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit} · @ tag file · /exit quit{rst}")
             else:
-                lines.append(f"  \x1b[2m{mid}{_plan_bit} · ↑ history · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid}{_plan_bit} · @ tag file · /exit quit{rst}")
 
             nlines = _visual_rows(lines)
             out = "\r\n".join(lines)
@@ -429,8 +413,6 @@ def get_input(messages=None):
                 selected = 0
                 m_selected = 0
                 m_dismissed = None
-                h_pos = len(hist)
-                h_draft = ""
                 continue
             if ch == "\x04":
                 raise EOFError
@@ -508,28 +490,12 @@ def get_input(messages=None):
                                 m_selected = (m_selected - 1) % len(m_cands)
                             elif filtered:
                                 selected = (selected - 1) % len(filtered)
-                            elif hist:
-                                if h_pos >= len(hist):
-                                    h_draft = buffer
-                                h_pos = _history_up(hist, h_pos)
-                                buffer = hist[h_pos]
-                                selected = 0
-                                m_selected = 0
-                                m_dismissed = None
-                                m_last_query = None
                             continue
                         if ch3 == "B":
                             if m_cands:
                                 m_selected = (m_selected + 1) % len(m_cands)
                             elif filtered:
                                 selected = (selected + 1) % len(filtered)
-                            elif hist:
-                                h_pos = _history_down(hist, h_pos)
-                                buffer = hist[h_pos] if h_pos < len(hist) else h_draft
-                                selected = 0
-                                m_selected = 0
-                                m_dismissed = None
-                                m_last_query = None
                             continue
                         if ch3 in ("C", "D", "H", "F"):
                             continue
@@ -1442,7 +1408,7 @@ _HELP_SECTIONS = [
     ("Shortcuts", [
         ("/", "commands · live filter", "Esc", "clear input"),
         ("Tab", "accept highlighted item", "Ctrl+U", "clear input"),
-        ("↑/↓", "navigate · history", "Ctrl+V", "paste"),
+        ("↑/↓", "navigate commands", "Ctrl+V", "paste"),
         ("Ctrl+C", "quit"),
     ]),
     ("Commands", [

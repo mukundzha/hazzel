@@ -45,3 +45,16 @@ def test_show_docs_prints(capsys):
     out = capsys.readouterr().out
     assert "Hazzel docs" in out
     assert "/pr" in out
+
+
+def test_clip_paste_normalizes_and_caps():
+    out = ui._clip_paste("a\r\n  indented\r\nb")
+    assert out == "a\n  indented\nb"
+    many = "\n".join(f"line {i}" for i in range(100))
+    assert len(ui._clip_paste(many).split("\n")) == ui.MAX_PASTE_LINES
+    assert len(ui._clip_paste("x" * 9000)) == ui.MAX_PASTE_CHARS
+
+
+def test_visual_rows_counts_newlines():
+    assert ui._visual_rows(["a\nb\nc"]) == 2
+    assert ui._visual_rows(["a"]) == 0

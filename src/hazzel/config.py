@@ -9,8 +9,6 @@ CONFIG_DIR = Path(os.getenv("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / 
 CONFIG_FILE = CONFIG_DIR / "config.json"
 LEGACY_FILE = Path.home() / ".hazzel" / "config.json"
 STAR_NUDGE_FILE = CONFIG_DIR / ".star_nudged"
-HISTORY_FILE = CONFIG_DIR / "history"
-HISTORY_MAX_ENTRIES = 200
 
 
 def should_show_star_nudge():
@@ -27,60 +25,6 @@ def mark_star_nudged():
     except OSError:
         pass
 
-
-def load_input_history():
-    try:
-        raw = HISTORY_FILE.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    entries = []
-    for line in raw.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entry = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            entry = line
-        if isinstance(entry, str) and entry.strip():
-            entries.append(entry)
-    return entries[-HISTORY_MAX_ENTRIES:]
-
-
-def append_input_history(entry):
-    entry = entry.strip("\n").strip()
-    if not entry:
-        return
-    history = load_input_history()
-    if history and history[-1] == entry:
-        return
-    history.append(entry)
-    history = history[-HISTORY_MAX_ENTRIES:]
-    tmp = None
-    try:
-        HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.chmod(HISTORY_FILE.parent, 0o700)
-        except OSError:
-            pass
-        fd, tmp_path = tempfile.mkstemp(dir=str(HISTORY_FILE.parent))
-        os.close(fd)
-        tmp = Path(tmp_path)
-        tmp.write_text("\n".join(json.dumps(e) for e in history) + "\n", encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        tmp.replace(HISTORY_FILE)
-        try:
-            os.chmod(HISTORY_FILE, 0o600)
-        except OSError:
-            pass
-    except OSError:
-        pass
-    finally:
-        if tmp is not None and tmp.exists() and tmp != HISTORY_FILE:
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
 
 MODEL_CATALOG = [
     {"display_name": "GPT OSS 120B", "id": "openai/gpt-oss-120b", "provider": "groq", "provider_display": "Groq"},
