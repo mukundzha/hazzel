@@ -105,7 +105,7 @@ def test_plan_blocks_writes(monkeypatch):
     assert agent.run_tool("run_command", {"command": "ls"}).startswith("Blocked: plan mode")
     assert agent.run_tool("git_commit", {"message": "x"}).startswith("Blocked: plan mode")
     assert agent.run_tool("git_branch", {"action": "create", "name": "x"}).startswith("Blocked: plan mode")
-    assert {t["function"]["name"] for t in agent.PLAN_TOOLS} == {"list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr"}
+    assert {t["function"]["name"] for t in agent.PLAN_TOOLS} == {"list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url"}
 
 
 def test_plan_allows_reads(monkeypatch):
@@ -121,6 +121,12 @@ def test_plan_fast_path_defers(monkeypatch):
     assert agent.try_fast_path(msgs, "delete foo.py") is None
     assert agent.try_fast_path(msgs, "run pytest -q") is None
     assert agent.try_fast_path(msgs, "download tabulate") is None
+
+
+def test_fast_fetch_falls_through_to_model():
+    msgs = [{"role": "system", "content": "x"}]
+    assert agent.try_fast_path(msgs, "fetch https://example.com/docs") is None
+    assert agent.try_fast_path(msgs, "read https://example.com/docs") is None
 
 
 def test_fast_context_variants():

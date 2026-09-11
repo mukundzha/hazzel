@@ -15,6 +15,7 @@ from hazzel.providers import get_provider
 from hazzel.providers.base import Usage
 from hazzel.tokens import estimate_messages, estimate_text
 from hazzel.tools.edit_file import edit_file
+from hazzel.tools.fetch_url import fetch_url
 from hazzel.tools.git_branch import git_branch
 from hazzel.tools.git_commit import git_commit
 from hazzel.tools.git_diff import git_diff
@@ -35,7 +36,8 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 11 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Tools: you have EXACTLY these 12 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
@@ -150,11 +152,19 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_url",
+            "description": "Read a public http(s) URL (docs, references, changelogs). Read-only, returns condensed relevant sentences up to max_chars. Always pass the user's question as query.",
+            "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}, "query": {"type": "string"}}, "required": ["url"]},
+        },
+    },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -225,6 +235,12 @@ _TOOL_ALIASES = {
     "pr": "github_pr",
     "pull_request": "github_pr",
     "pullrequest": "github_pr",
+    "fetch": "fetch_url",
+    "fetch_url": "fetch_url",
+    "curl": "fetch_url",
+    "wget": "fetch_url",
+    "browse": "fetch_url",
+    "web": "fetch_url",
 }
 
 
@@ -263,6 +279,17 @@ def _coerce_tool_args(tool_name, arguments):
                 args["pattern"] = args[k]
                 break
         args.setdefault("path", ".")
+    elif tool_name == "fetch_url":
+        if "url" not in args:
+            for k in ("link", "href", "target", "page", "site", "path"):
+                if args.get(k) is not None:
+                    args["url"] = args[k]
+                    break
+        if "query" not in args:
+            for k in ("question", "q"):
+                if args.get(k) is not None:
+                    args["query"] = args[k]
+                    break
     elif tool_name in ("write_file", "edit_file") and "path" not in args:
         for k in ("file", "filename", "filepath", "target"):
             if args.get(k) is not None:
@@ -441,6 +468,8 @@ def run_tool(tool_name, arguments):
             return git_commit(arguments.get("message"), arguments.get("files"))
         if tool_name == "git_branch":
             return git_branch(arguments.get("action", "current") or "current", arguments.get("name", "") or "")
+        if tool_name == "fetch_url":
+            return fetch_url(arguments["url"], arguments.get("max_chars", 2000), arguments.get("query", ""))
         if tool_name == "github_pr":
             return github_pr(
                 arguments.get("action", "list") or "list",
@@ -1097,6 +1126,8 @@ def try_fast_path(messages, user_input):
 
     match = re.match(r"^(?:(?:now|please|get|give|show|display)\s+)?context\s+(?:of\s+|for\s+)?(\S+?)[.!?]*\s*$", text, re.IGNORECASE)
     if match:
+        if match.group(1).lower().startswith(("http://", "https://")):
+            return None
         target = match.group(1)
         if target.lower() in ("it", "this", "that"):
             target = _LAST_TARGET
@@ -1106,6 +1137,8 @@ def try_fast_path(messages, user_input):
 
     match = re.match(r"^(?:(?:now|please)\s+)?(read|show|open|cat|view)\s+(?:me\s+)?(\S+?)[.!?]*\s*$", text, re.IGNORECASE)
     if match:
+        if match.group(2).lower().startswith(("http://", "https://")):
+            return None
         if match.group(2).lower() == "files" and match.group(1).lower() == "show":
             return _fast_list(messages, user_input, ".")
         target = match.group(2)
@@ -1270,7 +1303,7 @@ def run(messages, user_input):
 
             detail = arguments.get(
                 "pattern",
-                arguments.get("path", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", ""))))),
+                arguments.get("path", arguments.get("url", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", "")))))),
             )
             if tool_name == "github_pr" and isinstance(arguments, dict):
                 sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
@@ -1281,7 +1314,7 @@ def run(messages, user_input):
             cached = False
             elapsed = None
             try:
-                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff"):
+                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "fetch_url"):
                     cache_key = (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
                     if cache_key in seen_reads:
                         result = "(already in context above; do not re-read)"

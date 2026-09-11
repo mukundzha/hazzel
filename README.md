@@ -46,6 +46,7 @@ If you want the most feature-heavy agent, there are better options. If you want 
 - Git-native: `/status`, `/diff` with file browser, `/commit` with suggested message, `/branch`, `/log`, `/push`, `/pull`, `/sync`. No `--force`, no `reset --hard` via shell.
 - GitHub PRs via `gh`: `/pr` lists open PRs, `/pr view|diff|checks <n>` reads, `/pr comment|merge|close <n>` and `/pr create <title>` write (approval first, plan-mode read-only). Needs `gh auth login`.
 - Model thinking stays collapsed behind an Enter-to-expand prompt — peek only when curious.
+- Read the web: `fetch <url>` pulls public docs and references into context (read-only).
 - Extras: `/docs` prints the full usage guide, `/init` drafts an `AGENTS.md` project map, `/export` saves the transcript, `/copy` grabs the last reply, `/retry` re-runs your last message.
 - Streams responses with per-turn token usage (`/usage`).
 
@@ -66,9 +67,9 @@ Switch anytime with `/model`.
 
 ## What it is not
 
-Early-stage (v0.1.8). Expect rough edges.
+Early-stage (v1.1.0). Expect rough edges.
 
-No web browsing, no deploys, no background agents, no session persistence across restarts. It doesn't replace your editor — it stays in the terminal next to it.
+No deploys, no background agents, no session persistence across restarts. It doesn't replace your editor — it stays in the terminal next to it.
 
 ## Contributing
 

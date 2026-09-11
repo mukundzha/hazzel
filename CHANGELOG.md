@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-11
+### Added
+- Web reading: new `fetch_url` agent tool (read-only, plan-mode safe) for public docs and references, no new dependencies. Paste a URL and Hazzel summarizes the page instead of dumping raw text.
+### Changed
+- Model catalog trimmed to verified models only (35 total); README covers web reading.
+- Extraction prefers main content, dedupes repeats, and condenses long pages to ~2k query-relevant chars (~10x fewer tokens).
+
 ## [0.1.9] - 2026-09-11
 ### Added
 - `/docs`: full in-terminal usage guide (setup, loop, commands, approvals, git/PR workflows, troubleshooting).
