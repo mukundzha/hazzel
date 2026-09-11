@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hazzel — a small terminal coding agent</title>
+<meta name="description" content="Hazzel lives in your terminal. It reads code, edits files, runs commands, and works with git — always with your approval first. Bring your own key.">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#"><img src="logo.png" alt="Hazzel logo">hazzel</a>
+  <nav>
+    <a href="#features">Features</a>
+    <a href="#changelog">Changelog</a>
+    <a href="https://github.com/mukundzha/hazzel">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Hazzel</h1>
+    <p class="tagline">A small terminal coding agent. Bring your own key.</p>
+    <p class="lede">Hazzel lives in your terminal. It reads code, edits files, runs commands, and works with git — always with your approval first.</p>
+    <div class="install">
+      <code id="install-cmd">pip install hazzel</code>
+      <button id="copy-btn" type="button">copy</button>
+    </div>
+    <p class="meta">v1.3.0 · open source · no subscription</p>
+  </section>
+
+  <section id="why">
+    <h2>Why Hazzel?</h2>
+    <p>Most coding agents keep getting bigger. Hazzel stays small on purpose.</p>
+    <p>The model suggests what to do. Hazzel decides whether and how to do it. Every mutation goes through you: file changes show a diff before they apply, shell commands ask first, and destructive git stays blocked.</p>
+    <p>If you want the most feature-heavy agent, there are better options. If you want a terminal agent you can see through, that's Hazzel.</p>
+    <div class="turn">
+      <p class="turn-prompt">❯ Fix the failing test in tests/test_agent.py</p>
+      <p><span class="dot">●</span> read_file <span class="dim">tests/test_agent.py</span></p>
+      <p><span class="dot">●</span> edit_file <span class="dim">src/hazzel/agent.py — diff shown, you approve</span></p>
+      <p><span class="dot">●</span> run_command <span class="dim">pytest -q — passed</span></p>
+    </div>
+  </section>
+
+  <section id="loop">
+    <h2>The loop</h2>
+    <ol>
+      <li><strong>Ask in plain words</strong> — "fix the failing test", "explain this file", "review my diff".</li>
+      <li><strong>Approve each step</strong> — edits show a diff first, commands ask first. Nothing mutates without you.</li>
+      <li><strong>Verify together</strong> — Hazzel runs the check and reports back. Pipe the rest of your day through it.</li>
+    </ol>
+  </section>
+
+  <section id="features">
+    <h2>What it does</h2>
+    <ul>
+      <li><strong>Reads your codebase</strong> — search, list, and read across the project. Tag files with <code>@path</code> to pin them into context; plan mode explores read-only and hands you a numbered plan.</li>
+      <li><strong>Edits with approval</strong> — every change shows a diff before it applies, <code>/undo</code> reverts anything, and shell commands run sandboxed in your project root.</li>
+      <li><strong>Reviews like a senior</strong> — <code>/review</code> returns a verdict plus severity-ranked findings with file:line fixes; <code>/review @file</code> scopes to one file, <code>/review codebase</code> to everything.</li>
+      <li><strong>Git-native</strong> — status, diff browser, suggested commit messages, push/pull/sync, and GitHub PRs through <code>gh</code>. Destructive git (<code>--force</code>, <code>reset --hard</code>) stays blocked.</li>
+    </ul>
+  </section>
+
+  <section id="providers">
+    <h2>Providers</h2>
+    <p>Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter, Ollama. Bring your own key, switch with <code>/model</code>.</p>
+  </section>
+
+  <section id="changelog">
+    <h2>Changelog</h2>
+    <ul class="releases">
+      <li><strong>v1.3.0</strong> — senior-level <code>/review</code> with findings card</li>
+      <li><strong>v1.2.0</strong> — multiline input, Up/Down history</li>
+      <li><strong>v1.1.0</strong> — web reading with token-efficient condensing</li>
+    </ul>
+    <p><a href="https://github.com/mukundzha/hazzel/releases">All releases →</a></p>
+  </section>
+</main>
+
+<footer>
+  <div class="install">
+    <code>pip install hazzel</code>
+  </div>
+  <p><a href="https://github.com/mukundzha/hazzel">GitHub</a> · <a href="https://pypi.org/project/hazzel/">PyPI</a> · AGPL-3.0 · by Mukund Jha</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
