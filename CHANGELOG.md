@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-11
+### Added
+- Multiline input (Ctrl+J for newline, full multiline paste) and Up/Down prompt history persisted across restarts at `~/.config/hazzel/history`.
+
 ## [1.1.0] - 2026-09-11
 ### Added
 - Web reading: new `fetch_url` agent tool (read-only, plan-mode safe) for public docs and references, no new dependencies. Paste a URL and Hazzel summarizes the page instead of dumping raw text.
