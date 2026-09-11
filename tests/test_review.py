@@ -85,6 +85,22 @@ def test_parse_review_args():
     assert parse("codebase --staged") == (True, ".", True)
 
 
+def test_review_file_falls_back_to_content():
+    with patch("hazzel.git.diff_file", return_value=(True, "No changes.")):
+        with patch("hazzel.providers.get_provider") as provider:
+            provider.return_value.chat.return_value = _Resp("Verdict: APPROVE — safe.")
+            assert review_diff(False, "pyproject.toml") == "Verdict: APPROVE — safe."
+    body = provider.return_value.chat.call_args[0][0][1]["content"]
+    assert "full content" in body
+    assert "hazzel" in body
+
+
+def test_review_file_missing():
+    with patch("hazzel.git.diff_file", return_value=(True, "No changes.")):
+        out = review_diff(False, "nope_missing_xyz.py")
+    assert "not a readable file" in out
+
+
 def test_review_strips_mention():
     with patch("hazzel.git.diff_file", return_value=(True, "diff --git a/a.py\n+x=1")) as df:
         with patch("hazzel.providers.get_provider") as provider:

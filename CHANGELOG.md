@@ -4,10 +4,16 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [1.3.1] - 2026-09-11
 ### Added
+- `/goal`: pin a session objective with acceptance criteria (persisted); every model turn steers toward it with a progress note.
+- `/goal run`: executes the goal as a task; one-line setup (`/goal fix x | tests pass`), goal dimmed in the input footer, model proposes clearing when met.
 - `/review @file` reviews one file; `/review codebase` reviews staged plus unstaged together; scope shows in the result card.
+- `/review @file` reviews the full file content when it has no pending changes.
 ### Removed
 - Prompt history recall across restarts; multiline input (Ctrl+J, full paste) stays.
+- `/todo` task list and agent tool.
 
 ## [1.3.0] - 2026-09-11
 ### Added

@@ -94,6 +94,7 @@ _display_name = "GPT OSS 120B"
 _api_keys: dict[str, str] = {}
 _prove_enabled = False
 _plan_enabled = False
+_goal = None
 
 MODEL = _model
 
@@ -122,7 +123,7 @@ def _get_config_file():
 
 
 def _load_config():
-    global _model, _provider, _display_name, MODEL, _prove_enabled, _plan_enabled
+    global _model, _provider, _display_name, MODEL, _prove_enabled, _plan_enabled, _goal
     path = _get_config_file()
     if not path.exists():
         return
@@ -166,18 +167,24 @@ def _load_config():
         _prove_enabled = data["prove_enabled"]
     if isinstance(data.get("plan_enabled"), bool):
         _plan_enabled = data["plan_enabled"]
+    goal = data.get("goal")
+    if isinstance(goal, dict) and isinstance(goal.get("objective"), str) and goal["objective"].strip():
+        _goal = {"objective": goal["objective"].strip()[:500], "criteria": goal.get("criteria", "") if isinstance(goal.get("criteria"), str) else ""}
+        _goal["criteria"] = _goal["criteria"].strip()[:500]
+    elif goal is None:
+        _goal = None
 
 
 def _save_config():
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     try:
-        os.chmod(CONFIG_DIR, 0o700)
+        os.chmod(CONFIG_FILE.parent, 0o700)
     except OSError:
         pass
-    data = {"keys": dict(_api_keys), "provider": _provider, "model": _model, "display_name": _display_name, "prove_enabled": _prove_enabled, "plan_enabled": _plan_enabled}
+    data = {"keys": dict(_api_keys), "provider": _provider, "model": _model, "display_name": _display_name, "prove_enabled": _prove_enabled, "plan_enabled": _plan_enabled, "goal": _goal}
     tmp = None
     try:
-        fd, tmp_path = tempfile.mkstemp(dir=str(CONFIG_DIR))
+        fd, tmp_path = tempfile.mkstemp(dir=str(CONFIG_FILE.parent))
         os.close(fd)
         tmp = Path(tmp_path)
         tmp.write_text(json.dumps(data, indent=2) + "\n")
@@ -297,6 +304,29 @@ def set_plan_enabled(enabled):
         _save_config()
     except OSError:
         pass
+
+
+def get_goal():
+    if isinstance(_goal, dict) and isinstance(_goal.get("objective"), str) and _goal["objective"].strip():
+        return {"objective": _goal["objective"], "criteria": _goal.get("criteria", "") or ""}
+    return None
+
+
+def set_goal(objective, criteria=""):
+    global _goal
+    objective = (objective or "").strip()
+    if not objective:
+        _goal = None
+    else:
+        _goal = {"objective": objective[:500], "criteria": (criteria or "").strip()[:500]}
+    try:
+        _save_config()
+    except OSError:
+        pass
+
+
+def clear_goal():
+    set_goal("")
 
 
 def get_catalog():

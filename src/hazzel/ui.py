@@ -58,7 +58,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "1.3.0"
+            _ver = "1.3.1"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=DIM_COLOR)
@@ -72,6 +72,7 @@ SLASH_COMMANDS = [
     {"name": "/model", "desc": "switch model / provider"},
     {"name": "/prove", "desc": "ephemeral smoke check on/off"},
     {"name": "/plan", "desc": "read-only plan mode on/off"},
+    {"name": "/goal", "desc": "objective + run · criteria"},
     {"name": "/status", "desc": "git working-tree status"},
     {"name": "/diff", "desc": "git diff preview"},
     {"name": "/commit", "desc": "suggest + commit (approval)"},
@@ -383,12 +384,18 @@ def get_input(messages=None):
                 from . import config as _cfg
 
                 _plan_bit = " · plan" if _cfg.is_plan_enabled() else " · build"
+                _goal = _cfg.get_goal() or {}
+                _gtext = (_goal.get("objective") or "").strip()
+                if len(_gtext) > 28:
+                    _gtext = _gtext[:28] + "…"
+                _goal_bit = f" · ⚑ {_gtext}" if _gtext else ""
             except Exception:
                 _plan_bit = ""
+                _goal_bit = ""
             if tok:
-                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit}{_goal_bit} · @ tag file · /exit quit{rst}")
             else:
-                lines.append(f"  \x1b[2m{mid}{_plan_bit} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid}{_plan_bit}{_goal_bit} · @ tag file · /exit quit{rst}")
 
             nlines = _visual_rows(lines)
             out = "\r\n".join(lines)
@@ -1011,6 +1018,17 @@ def show_git_file_diff(path, body, staged=False, position=""):
     console.print()
 
 
+def prompt_goal_criteria():
+    was_active = _pause_loader()
+    try:
+        answer = input("  Done looks like what? [Enter to skip]: ")
+    except (EOFError, KeyboardInterrupt):
+        return ""
+    finally:
+        _resume_loader(was_active)
+    return _ANSI_RE.sub("", answer or "").strip()
+
+
 def prompt_diff_selection(count):
     was_active = _pause_loader()
     try:
@@ -1415,6 +1433,7 @@ _HELP_SECTIONS = [
         ("/model", "switch model & provider"),
         ("/prove", "smoke check on/off"),
         ("/plan", "read-only plan, approve first"),
+        ("/goal", "objective + acceptance"),
         ("/help", "this overview"),
         ("/docs", "full usage guide"),
         ("/clear", "reset conversation + usage"),

@@ -40,6 +40,7 @@ In your responses add proper spacing and formatting
 Tools: you have EXACTLY these 13 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
 Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
 Review: review_diff is read-only — call it when the user asks for a review; path takes a file (@file works), codebase=true reviews staged+unstaged together; it returns severity-ranked findings, never edits.
+Goal: if a session goal is appended to the user message, steer every step toward it and briefly note progress. When the acceptance looks met, propose clearing the goal.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
@@ -1211,6 +1212,38 @@ def try_fast_path(messages, user_input):
     return None
 
 
+def _session_goal_note():
+    try:
+        goal = config.get_goal()
+    except Exception:
+        return ""
+    if not isinstance(goal, dict):
+        return ""
+    objective = (goal.get("objective") or "").strip()
+    if not objective:
+        return ""
+    note = f"\n\nSession goal: {objective}."
+    criteria = (goal.get("criteria") or "").strip()
+    if criteria:
+        note += f" Acceptance: {criteria}."
+    note += " Steer toward it and briefly note progress."
+    return note
+
+
+def goal_run_task():
+    try:
+        goal = config.get_goal()
+    except Exception:
+        return None
+    if not isinstance(goal, dict):
+        return None
+    objective = (goal.get("objective") or "").strip()
+    if not objective:
+        return None
+    criteria = (goal.get("criteria") or "").strip() or "use your best judgment"
+    return f"Work toward this session goal: {objective}. Acceptance: {criteria}. Start with the first concrete step."
+
+
 def run(messages, user_input):
     # `messages` holds the system prompt plus compact history from previous turns.
     # Tool traffic for this turn is added to a working copy and never persisted.
@@ -1250,6 +1283,10 @@ def run(messages, user_input):
             ui.end_turn()
             tagged = ", ".join(f"`@{p}`" for p in attached)
             return _fast_reply(messages, user_input, f"Attached {tagged} — tell me what to do with it (explain, review, edit …).", trace)
+
+    goal_note = _session_goal_note()
+    if goal_note:
+        task_messages[-1]["content"] += goal_note
 
     try:
         provider = get_provider()

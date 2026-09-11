@@ -16,6 +16,13 @@ _last_response = None
 _last_user_input = None
 
 
+def _show_goal(goal):
+    console.print(f"  Goal: {goal['objective']}", style="bold white")
+    if (goal.get("criteria") or "").strip():
+        console.print(f"  Accept: {goal['criteria']}", style="dim")
+    console.print()
+
+
 def handle_model_command():
     catalog = config.get_catalog()
     current = config.get_current_model()
@@ -55,7 +62,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "1.3.0"
+            return "1.3.1"
 
 
 VERSION = _version()
@@ -268,6 +275,78 @@ def main(argv=None):
                 continue
             state = "on" if config.is_plan_enabled() else "off"
             console.print(f"  Plan mode: {state} — read-only exploration; Hazzel proposes, you approve with /plan off.", style="dim")
+            console.print()
+            continue
+        if low_in == "goal" or low_in.startswith("/goal"):
+            raw = user_input.strip()
+            rest = (raw[5:].strip() if raw.startswith("/") else raw[4:].strip())
+            head, _, arg = rest.partition(" ")
+            head = head.lower()
+            arg = arg.strip().strip("\"'")
+            if head in ("done", "clear", "reset", "off", "unset"):
+                config.clear_goal()
+                console.print("  Goal cleared.", style="dim")
+                console.print()
+                continue
+            if head in ("run", "go", "start"):
+                task = agent.goal_run_task()
+                if not task:
+                    ui.show_error("No goal set — /goal <objective> first.")
+                    continue
+                _last_user_input = task
+                try:
+                    result = agent.run(messages, task)
+                except KeyboardInterrupt:
+                    ui.end_turn()
+                    ui.show_hazzel_message("Cancelled.")
+                    continue
+                except Exception as error:
+                    ui.end_turn()
+                    ui.show_error(f"Turn failed ({error}). Nothing was committed; try again.")
+                    continue
+                if isinstance(result, tuple) and len(result) == 3:
+                    response, trace, summary = result
+                    _last_trace = trace
+                    _last_summary = summary
+                else:
+                    response = result
+                    _last_trace = []
+                    _last_summary = None
+                _last_response = response
+                ui.show_hazzel_message(response)
+                ui.show_reasoning(agent.get_last_reasoning())
+                continue
+            if head in ("accept", "criteria", "ok"):
+                current = config.get_goal() or {}
+                if not (current.get("objective") or "").strip():
+                    ui.show_error("No goal set — /goal <objective> first.")
+                    continue
+                config.set_goal(current["objective"], arg)
+                _show_goal(config.get_goal())
+                continue
+            if not rest:
+                current = config.get_goal()
+                if current:
+                    _show_goal(current)
+                else:
+                    console.print("  No goal set — /goal <objective> to pin one.", style="dim")
+                    console.print()
+                continue
+            objective, _, inline = rest.partition("|")
+            objective = objective.strip().strip("\"'")
+            inline = inline.strip().strip("\"'")
+            if not objective:
+                ui.show_error("Usage: /goal <objective> [| <acceptance>].")
+                continue
+            if inline:
+                config.set_goal(objective, inline)
+            else:
+                config.set_goal(objective)
+                criteria = ui.prompt_goal_criteria()
+                if criteria:
+                    config.set_goal(objective, criteria)
+            _show_goal(config.get_goal())
+            console.print("  ✓ Goal live — I'll steer here and flag when it looks done.", style="dim")
             console.print()
             continue
         if user_input.strip().lower() in ["/help", "/h", "help"]:

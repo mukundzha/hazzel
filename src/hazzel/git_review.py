@@ -22,6 +22,24 @@ REVIEW_SYSTEM = (
 MAX_REVIEW_DIFF = 8000
 
 
+def _full_file_content(path):
+    from .config import resolve_project_path
+
+    try:
+        resolved = resolve_project_path(path)
+    except ValueError as error:
+        return None, str(error)
+    if not resolved.exists() or not resolved.is_file():
+        return None, f"No changes to review in {path}, and it is not a readable file."
+    try:
+        content = resolved.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None, f"Cannot review {path}: file is binary or unreadable."
+    if not content.strip():
+        return None, f"No changes to review in {path}, and the file is empty."
+    return content, ""
+
+
 def parse_review_args(rest):
     import shlex
 
@@ -101,6 +119,12 @@ def review(staged: bool = False, path: str = ".", codebase: bool = False) -> str
             files = []
             if not ok:
                 return diff
+            if not diff.strip() or diff.strip() == "No changes.":
+                content, error = _full_file_content(path)
+                if error:
+                    return error
+                diff = content
+                scope = f"file {path} (no pending changes — reviewing full content)"
         else:
             ok, files, err = git.changed_files(bool(staged))
             if not ok:
