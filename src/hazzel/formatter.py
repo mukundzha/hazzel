@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 
 from rich.console import Console
-from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
@@ -20,7 +19,7 @@ from rich import box
 
 DEFAULT_CODE_THEME = "github-dark"
 
-ACCENT_STYLE = "bold #ffb6c1"
+ACCENT_STYLE = "bold white"
 HEADING_STYLE = "bold white"
 BOLD_STYLE = "bold white"
 ITALIC_STYLE = "italic"
@@ -31,7 +30,7 @@ LINK_URL_STYLE = "dim"
 MENTION_STYLE = "bold #8ab4f8"
 
 BULLET_STYLE = "dim"
-BULLET_MARKER_STYLE = "bold #ffb6c1"
+BULLET_MARKER_STYLE = "dim"
 BLOCKQUOTE_STYLE = "dim italic"
 
 TABLE_PADDING = (0, 1)
@@ -325,7 +324,7 @@ def render_table(
 
     table = Table(
         show_header=True,
-        header_style="bold #ffb6c1",
+        header_style="bold white",
         border_style="dim",
         box=box.ROUNDED,
         show_lines=False,
@@ -975,9 +974,6 @@ def print_response(
         message
     ):
         console.print(
-            Padding(
-                renderable,
-                (0, 0, 0, 2),
-            ),
+            renderable,
             soft_wrap=False,
         )

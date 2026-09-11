@@ -55,7 +55,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "0.1.8"
+            return "0.1.9"
 
 
 VERSION = _version()
@@ -94,6 +94,8 @@ def main(argv=None):
             break
         if not user_input.strip():
             continue
+        if user_input.strip().startswith("/"):
+            ui.show_user_command(user_input)
         if user_input.strip() == "/model":
             handle_model_command()
             continue
@@ -255,6 +257,9 @@ def main(argv=None):
             continue
         if user_input.strip().lower() in ["/help", "/h", "help"]:
             ui.show_help()
+            continue
+        if user_input.strip().lower() in ["/docs", "/doc", "/guide", "docs"]:
+            ui.show_docs()
             continue
         if user_input.strip().lower() in ["/logout", "/signout", "logout"]:
             config.clear_api_keys()

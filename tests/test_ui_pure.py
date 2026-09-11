@@ -30,3 +30,18 @@ def test_show_reasoning_empty_is_noop(capsys):
     ui.show_reasoning("   ")
     out = capsys.readouterr().out
     assert "thinking" not in out
+
+
+def test_docs_cover_core_workflows():
+    from hazzel.docs import get_sections
+
+    body = "\n".join(line for _, lines in get_sections() for line in lines)
+    for keyword in ("/model", "/pr", "/plan", "/prove", "/undo", "@", "gh auth login"):
+        assert keyword in body
+
+
+def test_show_docs_prints(capsys):
+    ui.show_docs()
+    out = capsys.readouterr().out
+    assert "Hazzel docs" in out
+    assert "/pr" in out

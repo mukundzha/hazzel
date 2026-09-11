@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-11
+### Added
+- `/docs`: full in-terminal usage guide (setup, loop, commands, approvals, git/PR workflows, troubleshooting).
+- Slash commands echo as `❯ /cmd` divider card before running.
+### Changed
+- Brand accent pink to red, cleaner slash-menu selection, `/help` covers `/docs`, replies hug content without left indent.
+
 ## [0.1.8] - 2026-09-10
 ### Added
 - New providers (8 total): Gemini, DeepSeek, OpenRouter via OpenAI-compatible endpoints, plus keyless local Ollama (`OLLAMA_HOST` override). No new dependencies.

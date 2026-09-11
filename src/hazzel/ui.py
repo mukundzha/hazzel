@@ -18,7 +18,7 @@ console = Console()
 
 _loader = None
 
-HAZZEL_COLOR = "#ffb6c1"
+HAZZEL_COLOR = "#FA0002"
 USER_COLOR = "#8ab4f8"
 
 TOOL_COLOR = "#c4c7c5"
@@ -57,10 +57,10 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "0.1.8"
+            _ver = "0.1.9"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
-    title.append(f" {_ver}", style=f"bold {USER_COLOR}")
+    title.append(f" {_ver}", style=DIM_COLOR)
     console.print(title)
     path = Text()
     path.append(_short_path(project_root), style=DIM_COLOR)
@@ -81,6 +81,7 @@ SLASH_COMMANDS = [
     {"name": "/log", "desc": "recent commits"},
     {"name": "/pr", "desc": "list / view / create PRs"},
     {"name": "/help", "desc": "show help"},
+    {"name": "/docs", "desc": "full usage guide"},
     {"name": "/clear", "desc": "clear conversation + usage"},
     {"name": "/summary", "desc": "summarize last implementation"},
     {"name": "/export", "desc": "save transcript to markdown"},
@@ -356,7 +357,7 @@ def get_input(messages=None):
                     name = c["name"].ljust(width)
                     desc = c["desc"]
                     if i == selected:
-                        lines.append(f"  \x1b[38;5;217m\u276f\x1b[0m \x1b[1m\x1b[97m{name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
+                        lines.append(f"  \x1b[1m\x1b[97m\u276f\x1b[0m \x1b[1m\x1b[97m{name}\x1b[0m  \x1b[2m{desc}\x1b[0m")
                     else:
                         lines.append(f"    \x1b[2m{name}  {desc}\x1b[0m")
                 lines.append(f"  \x1b[2m({selected + 1}/{total})\x1b[0m")
@@ -812,6 +813,16 @@ def show_tool(tool_name, detail="", success=True, exit_code=None, cached=False, 
         console.print(text)
 
 
+def show_user_command(command):
+    bar = Text("─" * _hw(), style="dim")
+    console.print(bar)
+    text = Text()
+    text.append("❯ ", style="dim")
+    text.append(command.strip(), style="white")
+    console.print(text)
+    console.print(bar)
+
+
 def show_error(message):
     text = Text()
     text.append("  ✗ ", style=f"bold {ERROR_COLOR}")
@@ -1232,6 +1243,7 @@ _HELP_SECTIONS = [
         ("/prove", "smoke check on/off"),
         ("/plan", "read-only plan, approve first"),
         ("/help", "this overview"),
+        ("/docs", "full usage guide"),
         ("/clear", "reset conversation + usage"),
         ("/summary", "summarize last implementation"),
         ("/export", "save transcript [file.md]"),
@@ -1282,6 +1294,50 @@ def _help_table(rows):
 
 def show_help():
     _print_help_inline()
+
+
+def _doc_line(line):
+    text = Text()
+    for i, part in enumerate(re.split(r"(`[^`]+`)", line)):
+        if not part:
+            continue
+        if part.startswith("`") and part.endswith("`") and len(part) > 2:
+            text.append(part[1:-1], style="bold white")
+            continue
+        pos = 0
+        for m in re.finditer(r"/[a-z]+|@\S+", part):
+            if m.start() > pos:
+                text.append(part[pos:m.start()], style="dim" if i == 0 and m.start() == 0 else "white")
+            tok = m.group(0)
+            text.append(tok, style=f"bold {HAZZEL_COLOR}" if tok.startswith("/") else f"bold {USER_COLOR}")
+            pos = m.end()
+        text.append(part[pos:], style="white" if pos else ("dim" if line.startswith("/") else "white"))
+    return text
+
+
+def show_docs():
+    from .docs import get_sections
+
+    sections = get_sections()
+    rule()
+    head = Text()
+    head.append("  Hazzel docs", style="bold white")
+    head.append(f"  ·  {len(sections)} sections", style=DIM_COLOR)
+    console.print(head)
+    rule()
+    for i, (title, lines) in enumerate(sections):
+        console.print()
+        sec = Text()
+        sec.append(f"  {i + 1:02d}  ", style=DIM_COLOR)
+        sec.append(title, style="bold white")
+        console.print(sec)
+        for line in lines:
+            row = Text()
+            row.append("       ", style=DIM_COLOR)
+            row.append_text(_doc_line(line))
+            console.print(row)
+    console.print()
+    rule()
 
 
 def _print_help_inline():
