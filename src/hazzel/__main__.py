@@ -179,10 +179,16 @@ def main(argv=None):
             raw = user_input.strip()
             rest = (raw[7:].strip() if raw.startswith("/") else raw[6:].strip())
             from hazzel.git_review import parse_review_args as _parse_review_args
-            staged, path = _parse_review_args(rest)
-            result = agent.run_tool("review_diff", {"staged": staged, "path": path})
+            staged, path, codebase = _parse_review_args(rest)
+            result = agent.run_tool("review_diff", {"staged": staged, "path": path, "codebase": codebase})
             _last_response = result
-            ui.show_review(result)
+            if codebase:
+                scope = "whole codebase"
+            elif path != ".":
+                scope = path
+            else:
+                scope = "staged" if staged else "unstaged"
+            ui.show_review(result, scope)
             continue
         if low_in in ("/push", "push"):
             from hazzel.tools.git_branch import git_branch as _gb

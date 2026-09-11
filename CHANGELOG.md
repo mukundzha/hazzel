@@ -4,6 +4,8 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- `/review @file` reviews one file; `/review codebase` reviews staged plus unstaged together; scope shows in the result card.
 
 ## [1.3.0] - 2026-09-11
 ### Added

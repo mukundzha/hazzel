@@ -1368,7 +1368,7 @@ def _render_wrapped(line, indent="    ", dim=True):
     return [_styled_spans(row_text, base) for row_text in rows]
 
 
-def show_review(result):
+def show_review(result, scope=""):
     verdict, sections, good = _parse_review(result or "")
     if not verdict and not sections:
         console.print(Text(result or "(empty review)", style="white"))
@@ -1377,6 +1377,8 @@ def show_review(result):
     total = sum(len(lines) for _, lines in sections)
     head = Text()
     head.append("  Code review", style="bold white")
+    if scope:
+        head.append(f"  ·  {scope}", style=DIM_COLOR)
     if total:
         head.append(f"  ·  {total} finding{'s' if total != 1 else ''}", style=DIM_COLOR)
     reason = ""
@@ -1464,7 +1466,7 @@ _HELP_SECTIONS = [
         ("/status", "working-tree status"),
         ("/diff", "changed files + full diff [--staged]"),
         ("/commit", "suggest message + approval"),
-        ("/review", "senior review [--staged] [path]"),
+        ("/review", "senior review [@file|codebase] [--staged]"),
         ("/branch", "list / create / switch"),
         ("/push", "push branch to remote"),
         ("/pull", "pull remote changes"),

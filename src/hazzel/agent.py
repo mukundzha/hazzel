@@ -39,7 +39,7 @@ Verify before claiming success.
 In your responses add proper spacing and formatting
 Tools: you have EXACTLY these 13 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
 Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
-Review: review_diff is read-only — call it when the user asks for a review; it returns severity-ranked findings, never edits.
+Review: review_diff is read-only — call it when the user asks for a review; path takes a file (@file works), codebase=true reviews staged+unstaged together; it returns severity-ranked findings, never edits.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
@@ -166,8 +166,8 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "review_diff",
-            "description": "Review git changes like a senior engineer: verdict plus severity-ranked findings with fixes. Read-only, never edits. Use staged=true for staged changes.",
-            "parameters": {"type": "object", "properties": {"staged": {"type": "boolean"}, "path": {"type": "string"}}},
+            "description": "Review git changes like a senior engineer: verdict plus severity-ranked findings with fixes. Read-only, never edits. Use staged=true for staged changes, path for one file, codebase=true for staged+unstaged together.",
+            "parameters": {"type": "object", "properties": {"staged": {"type": "boolean"}, "path": {"type": "string"}, "codebase": {"type": "boolean"}}},
         },
     },
 ]
@@ -312,6 +312,8 @@ def _coerce_tool_args(tool_name, arguments):
                     args["path"] = args[k]
                     break
         args.setdefault("path", ".")
+        if "codebase" not in args and str(args.get("scope", "")).lower() in ("codebase", "all", "whole"):
+            args["codebase"] = True
     elif tool_name in ("write_file", "edit_file") and "path" not in args:
         for k in ("file", "filename", "filepath", "target"):
             if args.get(k) is not None:
@@ -493,7 +495,7 @@ def run_tool(tool_name, arguments):
         if tool_name == "fetch_url":
             return fetch_url(arguments["url"], arguments.get("max_chars", 2000), arguments.get("query", ""))
         if tool_name == "review_diff":
-            return review_diff(arguments.get("staged", False), arguments.get("path", ".") or ".")
+            return review_diff(arguments.get("staged", False), arguments.get("path", ".") or ".", arguments.get("codebase", False))
         if tool_name == "github_pr":
             return github_pr(
                 arguments.get("action", "list") or "list",

@@ -56,7 +56,7 @@ def test_tool_routes_through_agent():
     with patch("hazzel.agent.review_diff", return_value="Verdict: APPROVE — safe.") as fn:
         out = agent.run_tool("review_diff", {"staged": True, "path": "a.py"})
     assert out == "Verdict: APPROVE — safe."
-    fn.assert_called_once_with(True, "a.py")
+    fn.assert_called_once_with(True, "a.py", False)
 
 
 def test_tool_alias():
@@ -72,13 +72,47 @@ def test_coerce_alias_before_default():
 
 def test_parse_review_args():
     parse = git_review.parse_review_args
-    assert parse("") == (False, ".")
-    assert parse("--staged") == (True, ".")
-    assert parse("--staged=false") == (False, ".")
-    assert parse("--staged=0 src/x.py") == (False, "src/x.py")
-    assert parse("--path=src/x.py") == (False, "src/x.py")
-    assert parse("src/x.py --staged") == (True, "src/x.py")
-    assert parse("--unknown") == (False, ".")
+    assert parse("") == (False, ".", False)
+    assert parse("--staged") == (True, ".", False)
+    assert parse("--staged=false") == (False, ".", False)
+    assert parse("--staged=0 src/x.py") == (False, "src/x.py", False)
+    assert parse("--path=src/x.py") == (False, "src/x.py", False)
+    assert parse("src/x.py --staged") == (True, "src/x.py", False)
+    assert parse("--unknown") == (False, ".", False)
+    assert parse("@a.py") == (False, "a.py", False)
+    assert parse('@"my file.py"') == (False, "my file.py", False)
+    assert parse("codebase") == (False, ".", True)
+    assert parse("codebase --staged") == (True, ".", True)
+
+
+def test_review_strips_mention():
+    with patch("hazzel.git.diff_file", return_value=(True, "diff --git a/a.py\n+x=1")) as df:
+        with patch("hazzel.providers.get_provider") as provider:
+            provider.return_value.chat.return_value = _Resp("Verdict: APPROVE — safe.")
+            assert review_diff(False, "@a.py") == "Verdict: APPROVE — safe."
+    df.assert_called_once_with("a.py", False)
+
+
+def test_review_codebase_combines():
+    with patch("hazzel.git.changed_files", side_effect=[(True, _files(), ""), (True, [{"status": "A", "path": "b.py", "added": 5, "deleted": 0}], "")]):
+        with patch("hazzel.git.diff_text", side_effect=[(True, "diff-u"), (True, "diff-s")]):
+            with patch("hazzel.providers.get_provider") as provider:
+                provider.return_value.chat.return_value = _Resp("Verdict: APPROVE — safe.")
+                assert review_diff(False, ".", True) == "Verdict: APPROVE — safe."
+    body = provider.return_value.chat.call_args[0][0][1]["content"]
+    assert "whole codebase" in body
+    assert "a.py" in body and "b.py" in body
+    assert "diff-u" in body and "diff-s" in body
+
+
+def test_review_codebase_empty():
+    with patch("hazzel.git.changed_files", return_value=(True, [], "")):
+        assert review_diff(False, ".", True) == "No changes to review in the whole codebase."
+
+
+def test_show_review_scope(capsys):
+    ui.show_review("Verdict: APPROVE — safe.", "a.py")
+    assert "a.py" in capsys.readouterr().out
 
 
 _SAMPLE = """Verdict: REQUEST CHANGES — undefined variable breaks runtime.

@@ -23,14 +23,23 @@ MAX_REVIEW_DIFF = 8000
 
 
 def parse_review_args(rest):
+    import shlex
+
     staged = False
     path = "."
-    for part in (rest or "").split():
+    codebase = False
+    try:
+        parts = shlex.split(rest or "", posix=True)
+    except ValueError:
+        parts = (rest or "").split()
+    for part in parts:
         low = part.lower()
         if low in ("--staged", "staged"):
             staged = True
         elif low in ("--unstaged", "unstaged"):
             staged = False
+        elif low in ("codebase", "/codebase"):
+            codebase = True
         elif part.startswith("--"):
             key, _, value = part[2:].partition("=")
             value = value.strip().strip("\"'")
@@ -39,8 +48,8 @@ def parse_review_args(rest):
             elif key.lower() == "path" and value:
                 path = value
         elif not part.startswith("-"):
-            path = part.strip("\"'")
-    return staged, path
+            path = part[1:] if part.startswith("@") else part
+    return staged, path, codebase
 
 
 def heuristic_review(summary: str, scope: str) -> str:
@@ -55,16 +64,41 @@ def heuristic_review(summary: str, scope: str) -> str:
     return "\n".join(lines)
 
 
-def review(staged: bool = False, path: str = ".") -> str:
+def review(staged: bool = False, path: str = ".", codebase: bool = False) -> str:
     from . import git
 
+    path = (path or ".").strip()
+    if path.startswith("@"):
+        path = path[1:].strip().strip("\"'")
+    if not path:
+        path = "."
     scope = "staged changes" if staged else "unstaged changes"
-    if path and path != ".":
+    if path != ".":
         scope += f" in {path}"
+    if codebase:
+        scope = "whole codebase (staged + unstaged changes)"
     try:
-        if path and path != ".":
+        if codebase:
+            ok, u_files, u_err = git.changed_files(False)
+            if not ok:
+                return u_err
+            ok, s_files, s_err = git.changed_files(True)
+            if not ok:
+                return s_err
+            merged = {f["path"]: f for f in u_files + s_files}
+            files = list(merged.values())
+            if not files:
+                return "No changes to review in the whole codebase."
+            ok, u_diff = git.diff_text(False, ".")
+            if not ok:
+                return u_diff
+            ok, s_diff = git.diff_text(True, ".")
+            if not ok:
+                return s_diff
+            diff = "\n".join(d for d in (u_diff, s_diff) if d and d.strip() != "No changes.")
+        elif path != ".":
             ok, diff = git.diff_file(path, bool(staged))
-            files: list[dict] = []
+            files = []
             if not ok:
                 return diff
         else:
