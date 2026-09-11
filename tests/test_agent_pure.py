@@ -105,7 +105,7 @@ def test_plan_blocks_writes(monkeypatch):
     assert agent.run_tool("run_command", {"command": "ls"}).startswith("Blocked: plan mode")
     assert agent.run_tool("git_commit", {"message": "x"}).startswith("Blocked: plan mode")
     assert agent.run_tool("git_branch", {"action": "create", "name": "x"}).startswith("Blocked: plan mode")
-    assert {t["function"]["name"] for t in agent.PLAN_TOOLS} == {"list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url"}
+    assert {t["function"]["name"] for t in agent.PLAN_TOOLS} == {"list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url", "review_diff"}
 
 
 def test_plan_allows_reads(monkeypatch):

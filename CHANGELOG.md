@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-11
+### Added
+- `/review`: senior-level code review (verdict plus severity-ranked findings with fixes) as a `review_diff` agent tool and slash command; read-only, plan-mode safe, with an offline heuristic fallback and a structured result card.
+
 ## [1.2.0] - 2026-09-11
 ### Added
 - Multiline input (Ctrl+J for newline, full multiline paste) and Up/Down prompt history persisted across restarts at `~/.config/hazzel/history`.

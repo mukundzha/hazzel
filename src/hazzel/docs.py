@@ -23,7 +23,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
         "Slash commands",
         [
             "/model — switch provider/model   /help — quick overview   /docs — this guide",
-            "/status /diff /commit /branch /log — git   /push /pull /sync — remote sync",
+            "/status /diff /review /commit /branch /log — git   /push /pull /sync — remote sync",
             "/pr — list PRs, /pr view|diff|checks <n> — read, /pr comment|merge|close <n>, /pr create <title> — write",
             "/plan on|off — read-only exploration   /prove on|off — smoke-check edits",
             "/undo [n] — revert file changes   /retry — re-run last message",

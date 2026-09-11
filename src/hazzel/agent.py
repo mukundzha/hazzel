@@ -23,6 +23,7 @@ from hazzel.tools.git_status import git_status
 from hazzel.tools.github_pr import github_pr
 from hazzel.tools.list_files import list_files
 from hazzel.tools.read_file import read_file
+from hazzel.tools.review_diff import review_diff
 from hazzel.tools.run_command import run_command
 from hazzel.tools.search_files import missing_file_message, search_files
 from hazzel.tools.write_file import write_file
@@ -36,8 +37,9 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 12 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Tools: you have EXACTLY these 13 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
 Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
+Review: review_diff is read-only — call it when the user asks for a review; it returns severity-ranked findings, never edits.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 Never claim OpenAI/Anthropic/Mistral/Groq built you."""
 MAX_ITERATIONS = 114
@@ -160,11 +162,19 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}, "query": {"type": "string"}}, "required": ["url"]},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "review_diff",
+            "description": "Review git changes like a senior engineer: verdict plus severity-ranked findings with fixes. Read-only, never edits. Use staged=true for staged changes.",
+            "parameters": {"type": "object", "properties": {"staged": {"type": "boolean"}, "path": {"type": "string"}}},
+        },
+    },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url", "review_diff"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url", "review_diff"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -241,6 +251,11 @@ _TOOL_ALIASES = {
     "wget": "fetch_url",
     "browse": "fetch_url",
     "web": "fetch_url",
+    "review": "review_diff",
+    "review_diff": "review_diff",
+    "code_review": "review_diff",
+    "codereview": "review_diff",
+    "critique": "review_diff",
 }
 
 
@@ -290,6 +305,13 @@ def _coerce_tool_args(tool_name, arguments):
                 if args.get(k) is not None:
                     args["query"] = args[k]
                     break
+    elif tool_name == "review_diff":
+        if "path" not in args:
+            for k in ("file", "filename", "filepath", "target"):
+                if args.get(k) is not None:
+                    args["path"] = args[k]
+                    break
+        args.setdefault("path", ".")
     elif tool_name in ("write_file", "edit_file") and "path" not in args:
         for k in ("file", "filename", "filepath", "target"):
             if args.get(k) is not None:
@@ -470,6 +492,8 @@ def run_tool(tool_name, arguments):
             return git_branch(arguments.get("action", "current") or "current", arguments.get("name", "") or "")
         if tool_name == "fetch_url":
             return fetch_url(arguments["url"], arguments.get("max_chars", 2000), arguments.get("query", ""))
+        if tool_name == "review_diff":
+            return review_diff(arguments.get("staged", False), arguments.get("path", ".") or ".")
         if tool_name == "github_pr":
             return github_pr(
                 arguments.get("action", "list") or "list",
@@ -1314,7 +1338,7 @@ def run(messages, user_input):
             cached = False
             elapsed = None
             try:
-                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "fetch_url"):
+                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "fetch_url", "review_diff"):
                     cache_key = (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
                     if cache_key in seen_reads:
                         result = "(already in context above; do not re-read)"

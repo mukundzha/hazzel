@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import textwrap
 import time
 
 from rich.console import Console
@@ -57,7 +58,7 @@ def _show_header(display_name, project_root):
         try:
             from hazzel import __version__ as _ver
         except Exception:
-            _ver = "1.2.0"
+            _ver = "1.3.0"
     title = Text()
     title.append("Hazzel", style=f"bold {HAZZEL_COLOR}")
     title.append(f" {_ver}", style=DIM_COLOR)
@@ -74,6 +75,7 @@ SLASH_COMMANDS = [
     {"name": "/status", "desc": "git working-tree status"},
     {"name": "/diff", "desc": "git diff preview"},
     {"name": "/commit", "desc": "suggest + commit (approval)"},
+    {"name": "/review", "desc": "senior-level code review"},
     {"name": "/branch", "desc": "list / switch branches"},
     {"name": "/push", "desc": "push branch to remote"},
     {"name": "/pull", "desc": "pull remote changes"},
@@ -1252,6 +1254,167 @@ def show_pr_suggest(title, body="", fallback=False):
     rule()
 
 
+_REVIEW_SEVERITIES = ("Critical", "Major", "Minor", "Nit")
+
+_REVIEW_SEV_STYLE = {
+    "Critical": f"bold {ERROR_COLOR}",
+    "Major": "bold yellow",
+    "Minor": "yellow",
+    "Nit": DIM_COLOR,
+}
+
+
+def _parse_review(text):
+    verdict = ""
+    sections = []
+    good = ""
+    current = None
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        low = line.lower()
+        if low.startswith("verdict:"):
+            verdict = line[len("verdict:"):].strip()
+            current = None
+        elif low.startswith("good:"):
+            good = line[len("good:"):].strip()
+            current = "good"
+        elif low.startswith("findings:"):
+            current = None
+        else:
+            sev = None
+            for name in _REVIEW_SEVERITIES:
+                if low.startswith(f"[{name.lower()}]"):
+                    sev = name
+                    rest = line[len(name) + 2:].strip()
+                    break
+            if sev is not None:
+                current = []
+                sections.append((sev, current))
+                if rest:
+                    current.append(rest)
+            elif current == "good":
+                good += " " + line
+            elif isinstance(current, list):
+                current.append(line)
+    return verdict, sections, good
+
+
+_REVIEW_FILE_RE = re.compile(r"[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+:\d+")
+_REVIEW_CODE_RE = re.compile(r"`[^`]+`")
+
+
+def _styled_spans(line, base):
+    row = Text()
+    marks = []
+    for match in _REVIEW_FILE_RE.finditer(line):
+        marks.append((match.start(), match.end(), f"bold {USER_COLOR}"))
+    for match in _REVIEW_CODE_RE.finditer(line):
+        marks.append((match.start(), match.end(), "bold white"))
+    prefix = re.match(r"\s*(\d+\.\s*)?", line)
+    off = prefix.end() if prefix else 0
+    if line[off:off + 4].lower() == "fix:":
+        marks.append((off, off + 4, f"bold {SUCCESS_COLOR}"))
+    marks.sort()
+    pos = 0
+    for start, end, style in marks:
+        if start > pos:
+            row.append(line[pos:start], style=base)
+        row.append(line[start:end], style=style)
+        pos = max(pos, end)
+    row.append(line[pos:], style=base)
+    return row
+
+
+def _term_width():
+    try:
+        return max(40, _hw())
+    except Exception:
+        return 80
+
+
+def _render_finding(line, num, dim=False):
+    base = DIM_COLOR if dim else "white"
+    rows = textwrap.wrap(
+        line,
+        width=_term_width(),
+        initial_indent=f"    {num}. ",
+        subsequent_indent="       ",
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [f"    {num}. "]
+    out = []
+    for i, row_text in enumerate(rows):
+        text = _styled_spans(row_text, base)
+        if i > 0:
+            plain = Text("       ", style=DIM_COLOR)
+            plain.append_text(text)
+            text = plain
+        out.append(text)
+    return out
+
+
+def _render_wrapped(line, indent="    ", dim=True):
+    base = DIM_COLOR if dim else "white"
+    rows = textwrap.wrap(
+        line,
+        width=_term_width(),
+        initial_indent=indent,
+        subsequent_indent=indent,
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [indent.rstrip()]
+    return [_styled_spans(row_text, base) for row_text in rows]
+
+
+def show_review(result):
+    verdict, sections, good = _parse_review(result or "")
+    if not verdict and not sections:
+        console.print(Text(result or "(empty review)", style="white"))
+        console.print()
+        return
+    total = sum(len(lines) for _, lines in sections)
+    head = Text()
+    head.append("  Code review", style="bold white")
+    if total:
+        head.append(f"  ·  {total} finding{'s' if total != 1 else ''}", style=DIM_COLOR)
+    reason = ""
+    if verdict:
+        status, sep, extra = verdict.partition("—")
+        if not sep:
+            status, sep, extra = verdict.partition(" - ")
+        bad = "request changes" in status.lower()
+        color = ERROR_COLOR if bad else SUCCESS_COLOR
+        head.append("  ·  ", style=DIM_COLOR)
+        head.append("✗ " if bad else "✓ ", style=f"bold {color}")
+        head.append(status.strip(), style=f"bold {color}")
+        reason = extra.strip()
+    console.print(head)
+    if reason:
+        for row in _render_wrapped(reason, indent="      ", dim=False):
+            console.print(row)
+    rule()
+    for sev, lines in sections:
+        console.print()
+        console.print(Text(f"  [{sev}]", style=_REVIEW_SEV_STYLE[sev]))
+        for num, line in enumerate(lines, 1):
+            for row in _render_finding(line, num, dim=(sev == "Nit")):
+                console.print(row)
+    if good:
+        console.print()
+        console.print(Text("  ✓ Good", style=f"bold {SUCCESS_COLOR}"))
+        for row in _render_wrapped(good):
+            console.print(row)
+    console.print()
+    if total:
+        next_step = "  Fix findings, re-run /review, then /commit."
+    else:
+        next_step = "  Clean — /commit when ready."
+    console.print(Text(next_step, style=DIM_COLOR))
+    rule()
+
+
 def show_model_selected(display_name, provider_display):
     text = Text()
     text.append("  ✓ ", style=f"bold {SUCCESS_COLOR}")
@@ -1277,7 +1440,7 @@ _HELP_SECTIONS = [
     ("Shortcuts", [
         ("/", "commands · live filter", "Esc", "clear input"),
         ("Tab", "accept highlighted item", "Ctrl+U", "clear input"),
-        ("↑/↓", "navigate commands", "Ctrl+V", "paste"),
+        ("↑/↓", "navigate · history", "Ctrl+V", "paste"),
         ("Ctrl+C", "quit"),
     ]),
     ("Commands", [
@@ -1301,6 +1464,7 @@ _HELP_SECTIONS = [
         ("/status", "working-tree status"),
         ("/diff", "changed files + full diff [--staged]"),
         ("/commit", "suggest message + approval"),
+        ("/review", "senior review [--staged] [path]"),
         ("/branch", "list / create / switch"),
         ("/push", "push branch to remote"),
         ("/pull", "pull remote changes"),

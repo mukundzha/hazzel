@@ -55,7 +55,7 @@ def _version():
             from hazzel import __version__
             return __version__
         except Exception:
-            return "1.2.0"
+            return "1.3.0"
 
 
 VERSION = _version()
@@ -174,6 +174,15 @@ def main(argv=None):
                 ui.show_error(out)
                 continue
             ui.show_git_log(out)
+            continue
+        if low_in == "review" or low_in.startswith("/review"):
+            raw = user_input.strip()
+            rest = (raw[7:].strip() if raw.startswith("/") else raw[6:].strip())
+            from hazzel.git_review import parse_review_args as _parse_review_args
+            staged, path = _parse_review_args(rest)
+            result = agent.run_tool("review_diff", {"staged": staged, "path": path})
+            _last_response = result
+            ui.show_review(result)
             continue
         if low_in in ("/push", "push"):
             from hazzel.tools.git_branch import git_branch as _gb

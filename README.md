@@ -43,7 +43,7 @@ If you want the most feature-heavy agent, there are better options. If you want 
 - Run shell commands with approval and timeout, sandboxed to your project root. Read-only cmds (`ls`, `cat`, `git status`…) skip approval.
 - Plan mode (`/plan on`): read-only exploration. Hazzel proposes a numbered plan, changes nothing until you run `/plan off`.
 - Prove mode (`/prove on`): smoke-checks Python edits in `/tmp` before you trust them.
-- Git-native: `/status`, `/diff` with file browser, `/commit` with suggested message, `/branch`, `/log`, `/push`, `/pull`, `/sync`. No `--force`, no `reset --hard` via shell.
+- Git-native: `/status`, `/diff` with file browser, `/review` with senior-level findings, `/commit` with suggested message, `/branch`, `/log`, `/push`, `/pull`, `/sync`. No `--force`, no `reset --hard` via shell.
 - GitHub PRs via `gh`: `/pr` lists open PRs, `/pr view|diff|checks <n>` reads, `/pr comment|merge|close <n>` and `/pr create <title>` write (approval first, plan-mode read-only). Needs `gh auth login`.
 - Model thinking stays collapsed behind an Enter-to-expand prompt — peek only when curious.
 - Read the web: `fetch <url>` pulls public docs and references into context (read-only).
@@ -68,7 +68,7 @@ Switch anytime with `/model`.
 
 ## What it is not
 
-Early-stage (v1.2.0). Expect rough edges.
+Early-stage (v1.3.0). Expect rough edges.
 
 No deploys, no background agents, no session persistence across restarts. It doesn't replace your editor — it stays in the terminal next to it.
 
