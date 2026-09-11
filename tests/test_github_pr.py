@@ -1,8 +1,15 @@
 from unittest.mock import patch
 
-from hazzel import github
+import pytest
+
+from hazzel import config, github
 from hazzel.agent import _plan_blocked, run_tool
 from hazzel.tools.github_pr import github_pr
+
+
+@pytest.fixture(autouse=True)
+def _neutral_modes(monkeypatch):
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: False)
 
 
 def test_parse_number():

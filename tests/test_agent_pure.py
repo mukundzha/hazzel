@@ -1,8 +1,15 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from hazzel import agent, config
 from hazzel.providers import base
 from hazzel.providers.base import ChatResponse
+
+
+@pytest.fixture(autouse=True)
+def _neutral_modes(monkeypatch):
+    monkeypatch.setattr(config, "is_plan_enabled", lambda: False)
 
 
 def test_normalize_namespaced():
