@@ -17,6 +17,7 @@ from hazzel.tokens import estimate_messages, estimate_text
 from hazzel.tools.apply_edits import apply_edits
 from hazzel.tools.edit_file import edit_file
 from hazzel.tools.fetch_url import fetch_url
+from hazzel.tools.web_search import web_search
 from hazzel.tools.git_branch import git_branch
 from hazzel.tools.git_commit import git_commit
 from hazzel.tools.git_diff import git_diff
@@ -38,8 +39,8 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 14 functions and no others: list_files, read_file, search_files, write_file, edit_file, apply_edits, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file. For multi-file changes prefer one apply_edits call.
-Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
+Tools: you have EXACTLY these 15 functions and no others: list_files, read_file, search_files, write_file, edit_file, apply_edits, run_command, git_status, git_diff, git_commit, git_branch, github_pr, web_search, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file. For multi-file changes prefer one apply_edits call.
+Web: web_search then fetch_url is read-only — search first for docs, changelogs, and references, then fetch the best hits (one fetch_url call accepts up to 5 urls); never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
 Review: review_diff is read-only — call it when the user asks for a review; path takes a file (@file works), codebase=true reviews staged+unstaged together; it returns severity-ranked findings, never edits.
 Goal: if a session goal is appended to the user message, steer every step toward it and briefly note progress. When the acceptance looks met, propose clearing the goal.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
@@ -167,9 +168,17 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "web_search",
+            "description": "Search the public web (no key). Read-only, returns up to count titles, URLs, and snippets. Then fetch the best hits with fetch_url.",
+            "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "count": {"type": "integer"}}, "required": ["query"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "fetch_url",
-            "description": "Read a public http(s) URL (docs, references, changelogs). Read-only, returns condensed relevant sentences up to max_chars. Always pass the user's question as query.",
-            "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}, "query": {"type": "string"}}, "required": ["url"]},
+            "description": "Read public http(s) URLs (docs, references, changelogs). Read-only, accepts one url or up to 5 urls, returns condensed relevant sentences up to max_chars. Always pass the user's question as query.",
+            "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "urls": {"type": "array", "items": {"type": "string"}}, "max_chars": {"type": "integer"}, "query": {"type": "string"}}},
         },
     },
     {
@@ -182,9 +191,9 @@ TOOLS = [
     },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url", "review_diff"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url", "review_diff"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -260,10 +269,16 @@ _TOOL_ALIASES = {
     "pullrequest": "github_pr",
     "fetch": "fetch_url",
     "fetch_url": "fetch_url",
+    "fetch_urls": "fetch_url",
     "curl": "fetch_url",
     "wget": "fetch_url",
     "browse": "fetch_url",
     "web": "fetch_url",
+    "web_search": "web_search",
+    "websearch": "web_search",
+    "search_web": "web_search",
+    "google": "web_search",
+    "ddg": "web_search",
     "review": "review_diff",
     "review_diff": "review_diff",
     "code_review": "review_diff",
@@ -307,8 +322,14 @@ def _coerce_tool_args(tool_name, arguments):
                 args["pattern"] = args[k]
                 break
         args.setdefault("path", ".")
+    elif tool_name == "web_search":
+        if "query" not in args:
+            for k in ("q", "question", "text", "term", "pattern"):
+                if args.get(k) is not None:
+                    args["query"] = args[k]
+                    break
     elif tool_name == "fetch_url":
-        if "url" not in args:
+        if "url" not in args and "urls" not in args:
             for k in ("link", "href", "target", "page", "site", "path"):
                 if args.get(k) is not None:
                     args["url"] = args[k]
@@ -533,8 +554,16 @@ def run_tool(tool_name, arguments):
             return git_commit(arguments.get("message"), arguments.get("files"))
         if tool_name == "git_branch":
             return git_branch(arguments.get("action", "current") or "current", arguments.get("name", "") or "")
+        if tool_name == "web_search":
+            query = arguments.get("query", "")
+            if not query:
+                for k in ("q", "question", "text", "term", "pattern"):
+                    if arguments.get(k):
+                        query = arguments[k]
+                        break
+            return web_search(query, arguments.get("count", 5))
         if tool_name == "fetch_url":
-            return fetch_url(arguments["url"], arguments.get("max_chars", 2000), arguments.get("query", ""))
+            return fetch_url(arguments.get("url", ""), arguments.get("max_chars", 2000), arguments.get("query", ""), urls=arguments.get("urls"))
         if tool_name == "review_diff":
             return review_diff(arguments.get("staged", False), arguments.get("path", ".") or ".", arguments.get("codebase", False))
         if tool_name == "github_pr":
@@ -576,7 +605,7 @@ def _build_summary_inner(trace, response_content, user_input):
         result = t["result"]
         if name == "read_file" and success and not t.get("cached"):
             inspected.append(detail)
-        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch", "github_pr") and success and not t.get("cached"):
+        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url") and success and not t.get("cached"):
             inspected.append(detail or name)
         elif name == "write_file" and success:
             created.append(detail)
@@ -1419,6 +1448,12 @@ def run(messages, user_input):
                         if p and p not in paths:
                             paths.append(p)
                 detail = ", ".join(paths[:4])
+            if tool_name == "web_search" and isinstance(arguments, dict):
+                detail = str(arguments.get("query", "") or "").strip()[:80]
+            if tool_name == "fetch_url" and isinstance(arguments, dict):
+                targets = arguments.get("urls") or []
+                if isinstance(targets, list) and targets:
+                    detail = ", ".join(str(t) for t in targets[:2])
             if tool_name == "github_pr" and isinstance(arguments, dict):
                 sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
                 if sub:
@@ -1428,7 +1463,7 @@ def run(messages, user_input):
             cached = False
             elapsed = None
             try:
-                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "fetch_url", "review_diff"):
+                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"):
                     cache_key = (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
                     if cache_key in seen_reads:
                         result = "(already in context above; do not re-read)"

@@ -104,9 +104,10 @@ def _condense(lines, query, budget):
     return "\n".join(cleaned[i] for i in sorted(picked))
 
 
-def fetch_url(url, max_chars=DEFAULT_MAX_CHARS, query=""):
-    if not url or not isinstance(url, str):
-        return "URL is required — usage: fetch_url(url, max_chars=5000)."
+MAX_URLS = 5
+
+
+def _fetch_one(url, max_chars, query):
     url = url.strip().strip("'\"<>")
     try:
         parsed = urllib.parse.urlparse(url)
@@ -157,3 +158,34 @@ def fetch_url(url, max_chars=DEFAULT_MAX_CHARS, query=""):
     out = [f"Fetched {url} ({total} chars):", body]
     out.append(f"[Condensed: showing {len(body)} most relevant of {total} chars]")
     return "\n".join(out)
+
+
+def fetch_url(url="", max_chars=DEFAULT_MAX_CHARS, query="", urls=None):
+    targets = []
+    if isinstance(url, list):
+        targets.extend(url)
+    elif isinstance(url, str) and url.strip():
+        targets.append(url)
+    if isinstance(urls, list):
+        targets.extend(urls)
+    elif isinstance(urls, str) and urls.strip():
+        targets.append(urls)
+    targets = [t for t in targets if isinstance(t, str) and t.strip()]
+    if not targets:
+        return "URL is required — usage: fetch_url(url, max_chars=5000)."
+    if len(targets) == 1:
+        return _fetch_one(targets[0], max_chars, query)
+    try:
+        budget = int(max_chars)
+    except (TypeError, ValueError):
+        budget = DEFAULT_MAX_CHARS
+    budget = max(500, min(budget, 20000))
+    picked = targets[:MAX_URLS]
+    share = max(500, budget // len(picked))
+    sections = []
+    for i, target in enumerate(picked, 1):
+        body = _fetch_one(target, share, query)
+        sections.append(f"=== [{i}/{len(picked)}] {target.strip()} ===\n{body}")
+    if len(targets) > MAX_URLS:
+        sections.append(f"[…{len(targets) - MAX_URLS} more URLs skipped, max {MAX_URLS} per call…]")
+    return "\n\n".join(sections)
