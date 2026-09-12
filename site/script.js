@@ -1,4 +1,27 @@
 (function () {
+  if (window.LocomotiveScroll) {
+    try {
+      var loco = new LocomotiveScroll({
+        el: document.querySelector("[data-scroll-container]"),
+        smooth: true,
+        lerp: 0.09
+      });
+      window.__loco = loco;
+      document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+        a.addEventListener("click", function (e) {
+          var id = a.getAttribute("href");
+          if (id.length > 1) {
+            var t = document.querySelector(id);
+            if (t) {
+              e.preventDefault();
+              loco.scrollTo(t);
+            }
+          }
+        });
+      });
+    } catch (e) {}
+  }
+
   var btn = document.getElementById("copy-btn");
   var cmd = document.getElementById("install-cmd");
   if (!btn || !cmd) return;

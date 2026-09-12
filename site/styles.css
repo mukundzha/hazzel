@@ -11,7 +11,7 @@
 * { box-sizing: border-box; }
 
 ::selection { background: var(--accent); color: #fff; }
-html { scroll-behavior: smooth; }
+html:not(.has-scroll-smooth) { scroll-behavior: smooth; }
 
 body {
   margin: 0;
