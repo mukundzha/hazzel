@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-09-12
+### Added
+- `web_search` tool: keyless public-web search (titles, URLs, snippets), plan-mode safe; pairs with `fetch_url` for a search-then-fetch flow.
+- `fetch_url` multi-page: accepts one `url` or up to 5 `urls` in a single call with per-page budget and `=== [i/n] ===` sections; single-URL output unchanged.
+
 ## [1.3.3] - 2026-09-12
 ### Added
 - `apply_edits` tool: up to 10 unique-anchor edits across files, atomically validated with one diff preview, one approval, rollback plus undo support.
