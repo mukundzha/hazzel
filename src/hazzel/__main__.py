@@ -412,7 +412,7 @@ def main(argv=None):
                 ui.show_error(out)
             continue
         if user_input.strip().lower() in ["/usage", "/u", "usage"]:
-            ui.show_usage(agent.get_session_usage(), agent.get_last_turn_usage())
+            ui.show_usage(agent.get_session_usage(), agent.get_last_turn_usage(), agent.context_usage(messages))
             continue
         if low_in == "retry" or low_in.startswith("/retry"):
             if not (_last_user_input or "").strip():

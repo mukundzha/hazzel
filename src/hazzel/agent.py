@@ -723,6 +723,28 @@ def get_last_turn_usage():
     return dict(_last_turn_usage)
 
 
+def context_usage(messages=None):
+    try:
+        live = estimate_messages(messages or [], _active_tools())
+    except Exception:
+        live = 0
+    try:
+        burned = int(get_session_usage().get("input") or 0)
+    except Exception:
+        burned = 0
+    try:
+        window = config.get_context_window()
+    except Exception:
+        window = 131072
+    try:
+        window = int(window or 131072)
+    except (TypeError, ValueError):
+        window = 131072
+    if window <= 0:
+        window = 131072
+    return max(int(live or 0), burned, 0), window
+
+
 def get_last_reasoning():
     joined = "\n\n".join(_turn_reasoning).strip()
     return joined or None

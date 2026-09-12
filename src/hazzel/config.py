@@ -26,43 +26,61 @@ def mark_star_nudged():
         pass
 
 
+DEFAULT_CONTEXT_WINDOW = 131072
+OLLAMA_CONTEXT_WINDOW = 32768
+
 MODEL_CATALOG = [
-    {"display_name": "GPT OSS 120B", "id": "openai/gpt-oss-120b", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "Llama 3.1 8B Instant", "id": "llama-3.1-8b-instant", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "Llama 3.3 70B Versatile", "id": "llama-3.3-70b-versatile", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "GPT OSS 20B", "id": "openai/gpt-oss-20b", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "GPT OSS Safeguard 20B", "id": "openai/gpt-oss-safeguard-20b", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "Qwen3.6 27B", "id": "qwen/qwen3.6-27b", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "Qwen3.8 27B", "id": "qwen/qwen3.8-27b", "provider": "groq", "provider_display": "Groq"},
-    {"display_name": "GPT-6 Astra", "id": "gpt-6-astra", "provider": "openai", "provider_display": "OpenAI"},
-    {"display_name": "GPT-5.6 Sol", "id": "gpt-5.6-sol", "provider": "openai", "provider_display": "OpenAI"},
-    {"display_name": "GPT-5.6 Terra", "id": "gpt-5.6-terra", "provider": "openai", "provider_display": "OpenAI"},
-    {"display_name": "GPT-5.6 Luna", "id": "gpt-5.6-luna", "provider": "openai", "provider_display": "OpenAI"},
-    {"display_name": "GPT-5.6 Cyber", "id": "gpt-5.6-cyber", "provider": "openai", "provider_display": "OpenAI"},
-    {"display_name": "Claude Fable 5", "id": "claude-fable-5", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Haiku 4.5", "id": "claude-haiku-4-5", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Haiku 4.5 20251001", "id": "claude-haiku-4-5-20251001", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 4.5", "id": "claude-opus-4-5", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 4.5 20251101", "id": "claude-opus-4-5-20251101", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 4.6", "id": "claude-opus-4-6", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 4.7", "id": "claude-opus-4-7", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 4.8", "id": "claude-opus-4-8", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Opus 5", "id": "claude-opus-5", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Claude Sonnet 4.5", "id": "claude-sonnet-4-5", "provider": "anthropic", "provider_display": "Anthropic"},
-    {"display_name": "Mistral Medium 3.5", "id": "mistral-medium-3.5", "provider": "mistral", "provider_display": "Mistral"},
-    {"display_name": "Mistral Small 4", "id": "mistral-small-4", "provider": "mistral", "provider_display": "Mistral"},
-    {"display_name": "Mistral Large 3", "id": "mistral-large-3", "provider": "mistral", "provider_display": "Mistral"},
-    {"display_name": "Codestral", "id": "codestral", "provider": "mistral", "provider_display": "Mistral"},
-    {"display_name": "Codestral Embed", "id": "codestral-embed", "provider": "mistral", "provider_display": "Mistral"},
-    {"display_name": "Gemini 3.8 Flash", "id": "gemini-3.8-flash", "provider": "gemini", "provider_display": "Gemini"},
-    {"display_name": "Gemini 3.7 Flash", "id": "gemini-3.7-flash", "provider": "gemini", "provider_display": "Gemini"},
-    {"display_name": "Gemini 3.1 Pro", "id": "gemini-3.1-pro-preview", "provider": "gemini", "provider_display": "Gemini"},
-    {"display_name": "Gemini 2.5 Pro", "id": "gemini-2.5-pro", "provider": "gemini", "provider_display": "Gemini"},
-    {"display_name": "DeepSeek V4 Flash", "id": "deepseek-v4-flash", "provider": "deepseek", "provider_display": "DeepSeek"},
-    {"display_name": "DeepSeek V4 Pro", "id": "deepseek-v4-pro", "provider": "deepseek", "provider_display": "DeepSeek"},
-    {"display_name": "GPT-6 Astra", "id": "openai/gpt-6-astra", "provider": "openrouter", "provider_display": "OpenRouter"},
-    {"display_name": "Gemini 3.8 Flash", "id": "google/gemini-3.8-flash", "provider": "openrouter", "provider_display": "OpenRouter"},
+    {"display_name": "GPT OSS 120B", "id": "openai/gpt-oss-120b", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "Llama 3.1 8B Instant", "id": "llama-3.1-8b-instant", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "Llama 3.3 70B Versatile", "id": "llama-3.3-70b-versatile", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "GPT OSS 20B", "id": "openai/gpt-oss-20b", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "GPT OSS Safeguard 20B", "id": "openai/gpt-oss-safeguard-20b", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "Qwen3.6 27B", "id": "qwen/qwen3.6-27b", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "Qwen3.8 27B", "id": "qwen/qwen3.8-27b", "provider": "groq", "provider_display": "Groq", "context": 131072},
+    {"display_name": "GPT-6 Astra", "id": "gpt-6-astra", "provider": "openai", "provider_display": "OpenAI", "context": 400000},
+    {"display_name": "GPT-5.6 Sol", "id": "gpt-5.6-sol", "provider": "openai", "provider_display": "OpenAI", "context": 400000},
+    {"display_name": "GPT-5.6 Terra", "id": "gpt-5.6-terra", "provider": "openai", "provider_display": "OpenAI", "context": 400000},
+    {"display_name": "GPT-5.6 Luna", "id": "gpt-5.6-luna", "provider": "openai", "provider_display": "OpenAI", "context": 400000},
+    {"display_name": "GPT-5.6 Cyber", "id": "gpt-5.6-cyber", "provider": "openai", "provider_display": "OpenAI", "context": 400000},
+    {"display_name": "Claude Fable 5", "id": "claude-fable-5", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Haiku 4.5", "id": "claude-haiku-4-5", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Haiku 4.5 20251001", "id": "claude-haiku-4-5-20251001", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 4.5", "id": "claude-opus-4-5", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 4.5 20251101", "id": "claude-opus-4-5-20251101", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 4.6", "id": "claude-opus-4-6", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 4.7", "id": "claude-opus-4-7", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 4.8", "id": "claude-opus-4-8", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Opus 5", "id": "claude-opus-5", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Claude Sonnet 4.5", "id": "claude-sonnet-4-5", "provider": "anthropic", "provider_display": "Anthropic", "context": 200000},
+    {"display_name": "Mistral Medium 3.5", "id": "mistral-medium-3.5", "provider": "mistral", "provider_display": "Mistral", "context": 131072},
+    {"display_name": "Mistral Small 4", "id": "mistral-small-4", "provider": "mistral", "provider_display": "Mistral", "context": 131072},
+    {"display_name": "Mistral Large 3", "id": "mistral-large-3", "provider": "mistral", "provider_display": "Mistral", "context": 131072},
+    {"display_name": "Codestral", "id": "codestral", "provider": "mistral", "provider_display": "Mistral", "context": 262144},
+    {"display_name": "Codestral Embed", "id": "codestral-embed", "provider": "mistral", "provider_display": "Mistral", "context": 32768},
+    {"display_name": "Gemini 3.8 Flash", "id": "gemini-3.8-flash", "provider": "gemini", "provider_display": "Gemini", "context": 1048576},
+    {"display_name": "Gemini 3.7 Flash", "id": "gemini-3.7-flash", "provider": "gemini", "provider_display": "Gemini", "context": 1048576},
+    {"display_name": "Gemini 3.1 Pro", "id": "gemini-3.1-pro-preview", "provider": "gemini", "provider_display": "Gemini", "context": 1048576},
+    {"display_name": "Gemini 2.5 Pro", "id": "gemini-2.5-pro", "provider": "gemini", "provider_display": "Gemini", "context": 1048576},
+    {"display_name": "DeepSeek V4 Flash", "id": "deepseek-v4-flash", "provider": "deepseek", "provider_display": "DeepSeek", "context": 131072},
+    {"display_name": "DeepSeek V4 Pro", "id": "deepseek-v4-pro", "provider": "deepseek", "provider_display": "DeepSeek", "context": 131072},
+    {"display_name": "GPT-6 Astra", "id": "openai/gpt-6-astra", "provider": "openrouter", "provider_display": "OpenRouter", "context": 400000},
+    {"display_name": "Gemini 3.8 Flash", "id": "google/gemini-3.8-flash", "provider": "openrouter", "provider_display": "OpenRouter", "context": 1048576},
 ]
+
+
+def get_context_window():
+    try:
+        size = get_current_entry().get("context")
+        if isinstance(size, int) and size > 0:
+            return size
+    except Exception:
+        pass
+    try:
+        if get_current_provider() == "ollama":
+            return OLLAMA_CONTEXT_WINDOW
+    except Exception:
+        pass
+    return DEFAULT_CONTEXT_WINDOW
 
 PROVIDER_ENV = {
     "mistral": "MISTRAL_API_KEY",

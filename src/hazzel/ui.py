@@ -343,11 +343,15 @@ def get_input(messages=None):
                 from hazzel import agent as _agent
                 from .tokens import format_count as _fmt
 
-                _u = _agent.get_session_usage()
-                _total = (_u.get("input") or 0) + (_u.get("output") or 0)
-                tok = f"{_fmt(_total)} tokens" if _u.get("calls") else "0 tokens"
-            except OSError:
-                tok = ""
+                _used, _window = _agent.context_usage(messages)
+                tok = format_context_meter(_used, _window)
+            except Exception:
+                try:
+                    _u = _agent.get_session_usage()
+                    _total = (_u.get("input") or 0) + (_u.get("output") or 0)
+                    tok = f"{_fmt(_total)} tokens" if _u.get("calls") else "0 tokens"
+                except Exception:
+                    tok = ""
             lines = []
             lines.append(bar)
             hbuf = _highlight_mentions(buffer)
@@ -859,6 +863,47 @@ def _relativize_detail(detail):
         except OSError:
             parts.append(tok)
     return " ".join(parts)
+
+
+def format_context_plain(used, window):
+    try:
+        used = max(0, int(used or 0))
+    except (TypeError, ValueError):
+        used = 0
+    try:
+        window = int(window or 0)
+    except (TypeError, ValueError):
+        window = 0
+    if window <= 0:
+        window = 131072
+    if window >= 1_000_000:
+        short = f"{window / 1_000_000:.1f}M"
+    elif window >= 1000:
+        short = f"{window // 1000}k"
+    else:
+        short = str(window)
+    return f"{used / window * 100:.1f}%/{short} (auto)"
+
+
+def format_context_meter(used, window):
+    try:
+        used = max(0, int(used or 0))
+    except (TypeError, ValueError):
+        used = 0
+    try:
+        window = int(window or 0)
+    except (TypeError, ValueError):
+        window = 0
+    if window <= 0:
+        window = 131072
+    pct = used / window * 100
+    if pct < 50:
+        color = "\x1b[32m"
+    elif pct < 80:
+        color = "\x1b[33m"
+    else:
+        color = "\x1b[31m"
+    return f"\x1b[1m{color}{format_context_plain(used, window)}\x1b[0m\x1b[2m"
 
 
 def _format_elapsed(seconds):
@@ -1677,14 +1722,14 @@ def _show_help_tab():
         pass
 
 
-def show_usage(session, last=None):
+def show_usage(session, last=None, context=None):
     if sys.stdin.isatty():
-        _show_usage_tab(session, last)
+        _show_usage_tab(session, last, context)
     else:
-        _print_usage_inline(session, last)
+        _print_usage_inline(session, last, context)
 
 
-def _usage_body(session, last=None):
+def _usage_body(session, last=None, context=None):
     from .tokens import format_count
     sent = int(session.get("input") or 0)
     received = int(session.get("output") or 0)
@@ -1711,6 +1756,15 @@ def _usage_body(session, last=None):
     hero.append(f"{total:,}", style="bold white")
     hero.append(f"  tokens · {calls} call{'s' if calls != 1 else ''}", style="dim")
     yield Panel(Align.center(hero), border_style="dim", padding=(1, 4))
+    if context:
+        try:
+            ctx = Text(justify="center")
+            ctx.append("◈ context  ", style="dim")
+            ctx.append(format_context_plain(context[0], context[1]), style="bold white")
+            yield ctx
+            yield Text("")
+        except Exception:
+            pass
 
     table = Table.grid(padding=(0, 2))
     table.add_column(justify="right", style="dim", width=10)
@@ -1734,9 +1788,9 @@ def _usage_body(session, last=None):
         yield Text("  ~ estimated, not billed", style="dim")
 
 
-def _print_usage_inline(session, last=None):
+def _print_usage_inline(session, last=None, context=None):
     console.print()
-    for line in _usage_body(session, last):
+    for line in _usage_body(session, last, context):
         console.print(line)
     console.print()
     foot = Text()
@@ -1746,7 +1800,7 @@ def _print_usage_inline(session, last=None):
     console.print()
 
 
-def _show_usage_tab(session, last=None):
+def _show_usage_tab(session, last=None, context=None):
     fd = sys.stdin.fileno()
     try:
         import termios
@@ -1762,7 +1816,7 @@ def _show_usage_tab(session, last=None):
             termios.tcsetattr(fd, termios.TCSANOW, attrs)
             termios.tcflush(fd, termios.TCIFLUSH)
             console.print()
-            for line in _usage_body(session, last):
+            for line in _usage_body(session, last, context):
                 console.print(line)
             console.print()
             foot = Text()
@@ -1795,7 +1849,7 @@ def _show_usage_tab(session, last=None):
             sys.stdout.write("\x1b[?25h\x1b[?1049l")
             sys.stdout.flush()
     except (OSError, ImportError):
-        _print_usage_inline(session, last)
+        _print_usage_inline(session, last, context)
 
 
 def show_turn_usage(session):

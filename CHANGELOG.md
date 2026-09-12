@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-09-12
+### Added
+- Live context meter in the input footer (`12.4%/1.0M (auto)`): per-model context windows, green/amber/red thresholds, session-burn tracking that climbs as you work.
+- `◈ context` line in `/usage` with the same window fill.
+
 ## [1.3.4] - 2026-09-12
 ### Added
 - `web_search` tool: keyless public-web search (titles, URLs, snippets), plan-mode safe; pairs with `fetch_url` for a search-then-fetch flow.
