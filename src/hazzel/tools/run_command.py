@@ -64,31 +64,83 @@ def _checkpoint_rm_targets(command):
             continue
 
 
-def run_command(command, preapproved=False):
+DEFAULT_TIMEOUT = 30
+MAX_TIMEOUT = 120
+MAX_OUTPUT_CHARS = 8000
+TAIL_CHARS = 4000
 
-    if not preapproved and not is_safe_command(command):
-        if not ui.confirm(f"Hazzel wants to run: {command}\nAllow?"):
+
+def _coerce_timeout(value):
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TIMEOUT
+    if timeout != timeout:
+        return DEFAULT_TIMEOUT
+    if timeout < 1:
+        return 1
+    if timeout > MAX_TIMEOUT:
+        return MAX_TIMEOUT
+    return timeout
+
+
+def _resolve_cwd(cwd):
+    if not cwd:
+        return PROJECT_ROOT
+    try:
+        resolved = resolve_project_path(cwd)
+    except ValueError as error:
+        raise ValueError(str(error))
+    if not resolved.exists() or not resolved.is_dir():
+        raise ValueError(f"cwd is not a directory: {cwd}")
+    return resolved
+
+
+def _spill_to_tmp(output):
+    import tempfile
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", prefix="hazzel-bash-", suffix=".log", delete=False, encoding="utf-8") as tmp:
+            tmp.write(output)
+            return tmp.name
+    except OSError:
+        return ""
+
+
+def run_command(command, timeout=None, cwd=None, description=None, preapproved=False):
+    text = (command or "").strip()
+    if not text:
+        return "Command is required."
+    secs = DEFAULT_TIMEOUT if timeout is None else _coerce_timeout(timeout)
+    try:
+        workdir = _resolve_cwd(cwd)
+    except ValueError as error:
+        return str(error)
+    if not preapproved and not is_safe_command(text):
+        prompt = f"Hazzel wants to run: {text}"
+        if description:
+            prompt += f"\n{description}"
+        prompt += "\nAllow?"
+        if not ui.confirm(prompt):
             return "Command cancelled by user"
-
-    _checkpoint_rm_targets(command)
-
+    _checkpoint_rm_targets(text)
     proc = None
     try:
         proc = subprocess.Popen(
-            command,
+            text,
             shell=True,
-            cwd=PROJECT_ROOT,
+            cwd=workdir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             **wincompat.popen_kwargs(),
         )
         try:
-            out, err = proc.communicate(timeout=30)
+            out, err = proc.communicate(timeout=secs)
         except subprocess.TimeoutExpired:
             wincompat.kill_proc(proc)
             proc.wait()
-            return "Command timed out after 30 seconds — split it into a smaller step or narrow its scope."
+            label = int(secs) if float(secs).is_integer() else secs
+            return f"Command timed out after {label} seconds — retry with a larger timeout (max {MAX_TIMEOUT}) or narrow its scope."
         result_stdout, result_stderr, returncode = out, err, proc.returncode
     except KeyboardInterrupt:
         if proc is not None:
@@ -98,15 +150,17 @@ def run_command(command, preapproved=False):
             except OSError:
                 pass
         return "Command cancelled by user"
-
-    output = result_stdout if result_stdout else result_stderr
+    output = result_stdout if (result_stdout or "").strip() else (result_stderr or "")
     output = output or "Command completed with no output."
-
-    if len(output) > 3000:
-        output = output[:1000] + f"\n[…{len(output) - 2000} chars skipped…]\n" + output[-2000:]
-
+    if len(output) > MAX_OUTPUT_CHARS:
+        path = _spill_to_tmp(output)
+        tail = output[-TAIL_CHARS:]
+        note = f"\n[Showing last {len(tail)} of {len(output)} chars."
+        if path:
+            note += f" Full output: {path}"
+        note += "]"
+        output = tail + note
     if returncode != 0:
         return f"Command failed (exit {returncode}):\n{output}"
-
     return output
 

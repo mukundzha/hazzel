@@ -111,8 +111,8 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Run a shell command from the project root. Read-only cmds (ls, pwd, cat, head, tail, echo, wc, file, git status/diff/log) run without approval; all else asks.",
-            "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]},
+            "description": "Run a shell command from the project root. Read-only cmds run without approval; all else asks. Optional timeout (1-120s), cwd (project-relative dir), description. Large output is truncated with full log to tmp.",
+            "parameters": {"type": "object", "properties": {"command": {"type": "string"}, "timeout": {"type": "number"}, "cwd": {"type": "string"}, "description": {"type": "string"}}, "required": ["command"]},
         },
     },
     {
@@ -352,11 +352,17 @@ def _coerce_tool_args(tool_name, arguments):
                             break
                 fixed.append(item)
             args["edits"] = fixed
-    elif tool_name == "run_command" and "command" not in args:
-        for k in ("cmd", "script", "bash", "shell"):
-            if args.get(k) is not None:
-                args["command"] = args[k]
-                break
+    elif tool_name == "run_command":
+        if "command" not in args:
+            for k in ("cmd", "script", "bash", "shell"):
+                if args.get(k) is not None:
+                    args["command"] = args[k]
+                    break
+        if "cwd" not in args:
+            for k in ("dir", "directory", "working_dir", "workdir"):
+                if args.get(k) is not None:
+                    args["cwd"] = args[k]
+                    break
     elif tool_name == "github_pr":
         for k in ("pr", "id", "target"):
             if "number" not in args and args.get(k) is not None:
@@ -518,7 +524,7 @@ def run_tool(tool_name, arguments):
                 return "Blocked: use git_commit / git_branch tools instead of raw git writes. Destructive git (reset --hard, clean, --force) is disabled."
             if "gh pr create" in low or "gh pr merge" in low or "gh pr comment" in low or "gh pr close" in low:
                 return "Blocked: use github_pr tool instead of raw `gh pr` writes."
-            return run_command(cmd)
+            return run_command(cmd, timeout=arguments.get("timeout"), cwd=arguments.get("cwd"), description=arguments.get("description"))
         if tool_name == "git_status":
             return git_status()
         if tool_name == "git_diff":
@@ -1134,6 +1140,8 @@ def try_fast_path(messages, user_input):
         return _fast_reply(messages, user_input, "Hello! How can I help you today?", [])
     if low in ("thanks", "thank you", "thx"):
         return _fast_reply(messages, user_input, "You're welcome.", [])
+    if len(low) <= 1:
+        return _fast_reply(messages, user_input, "I'm Hazzel — tell me what to do (e.g. `read @path`, `run pytest -q`).", [])
 
     if re.search(r"who\s+(developed|created|built|made|designed)\s+(you|hazzel|this)(\s+(agent|app|tool|program))?\b", low) or re.search(
         r"who'?s\s+your\s+(developer|creator|maker|author|owner|father|dad)\b", low

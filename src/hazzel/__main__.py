@@ -16,6 +16,12 @@ _last_trace = []
 _last_response = None
 _last_user_input = None
 
+_CARD_TOOLS = frozenset({"write_file", "edit_file", "apply_edits", "run_command", "git_commit", "git_branch", "github_pr"})
+
+
+def _should_show_card(trace):
+    return any((t.get("tool") in _CARD_TOOLS) for t in trace or [])
+
 
 def _show_goal(goal):
     console.print(f"  Goal: {goal['objective']}", style="bold white")
@@ -102,6 +108,25 @@ def main(argv=None):
         if user_input.strip().lower() in ["exit", "quit", "/exit", "/q", ":q", ":quit"]:
             break
         if not user_input.strip():
+            continue
+        if user_input.strip().startswith("!"):
+            cmd = user_input.strip()[1:].strip()
+            if not cmd:
+                ui.show_error("Empty command — try `!ls`.")
+                continue
+            _last_user_input = user_input
+            try:
+                result = agent.run_tool("run_command", {"command": cmd})
+            except KeyboardInterrupt:
+                ui.show_hazzel_message("Cancelled.")
+                continue
+            except Exception as error:
+                ui.show_error(f"Command failed ({error}).")
+                continue
+            _last_response = result
+            _last_trace = []
+            _last_summary = None
+            ui.show_hazzel_message(result)
             continue
         if user_input.strip().startswith("/"):
             ui.show_user_command(user_input)
@@ -296,16 +321,20 @@ def main(argv=None):
                     ui.show_error("No goal set — /goal <objective> first.")
                     continue
                 _last_user_input = task
+                ui.set_quiet(True)
                 try:
                     result = agent.run(messages, task)
                 except KeyboardInterrupt:
+                    ui.set_quiet(False)
                     ui.end_turn()
                     ui.show_hazzel_message("Cancelled.")
                     continue
                 except Exception as error:
+                    ui.set_quiet(False)
                     ui.end_turn()
                     ui.show_error(f"Turn failed ({error}). Nothing was committed; try again.")
                     continue
+                ui.set_quiet(False)
                 if isinstance(result, tuple) and len(result) == 3:
                     response, trace, summary = result
                     _last_trace = trace
@@ -315,6 +344,7 @@ def main(argv=None):
                     _last_trace = []
                     _last_summary = None
                 _last_response = response
+                ui.show_turn_from_trace(task, _last_trace, _last_summary)
                 ui.show_hazzel_message(response)
                 ui.show_reasoning(agent.get_last_reasoning())
                 continue
@@ -388,16 +418,20 @@ def main(argv=None):
             if not (_last_user_input or "").strip():
                 ui.show_error("No previous message — ask something first.")
                 continue
+            ui.set_quiet(True)
             try:
                 result = agent.run(messages, _last_user_input)
             except KeyboardInterrupt:
+                ui.set_quiet(False)
                 ui.end_turn()
                 ui.show_hazzel_message("Cancelled.")
                 continue
             except Exception as error:
+                ui.set_quiet(False)
                 ui.end_turn()
                 ui.show_error(f"Turn failed ({error}). Nothing was committed; try again.")
                 continue
+            ui.set_quiet(False)
             if isinstance(result, tuple) and len(result) == 3:
                 response, trace, summary = result
                 _last_trace = trace
@@ -407,6 +441,8 @@ def main(argv=None):
                 _last_trace = []
                 _last_summary = None
             _last_response = response
+            if _should_show_card(_last_trace):
+                ui.show_turn_from_trace(_last_user_input, _last_trace, _last_summary)
             ui.show_hazzel_message(response)
             ui.show_reasoning(agent.get_last_reasoning())
             continue
@@ -462,16 +498,20 @@ def main(argv=None):
             ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
             continue
         _last_user_input = user_input
+        ui.set_quiet(True)
         try:
             result = agent.run(messages, user_input)
         except KeyboardInterrupt:
+            ui.set_quiet(False)
             ui.end_turn()
             ui.show_hazzel_message("Cancelled.")
             continue
         except Exception as error:
+            ui.set_quiet(False)
             ui.end_turn()
             ui.show_error(f"Turn failed ({error}). Nothing was committed; try again.")
             continue
+        ui.set_quiet(False)
         if isinstance(result, tuple) and len(result) == 3:
             response, trace, summary = result
             _last_trace = trace
@@ -481,6 +521,8 @@ def main(argv=None):
             _last_trace = []
             _last_summary = None
         _last_response = response
+        if _should_show_card(_last_trace):
+            ui.show_turn_from_trace(user_input, _last_trace, _last_summary)
         ui.show_hazzel_message(response)
         ui.show_reasoning(agent.get_last_reasoning())
 

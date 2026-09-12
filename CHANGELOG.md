@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-09-12
+### Added
+- `apply_edits` tool: up to 10 unique-anchor edits across files, atomically validated with one diff preview, one approval, rollback plus undo support.
+- Pi-style `run_command`: optional `timeout` (1-120s), `cwd` (project-jailed), `description` in approval; large output tails 4k chars with full log spilled to `/tmp/hazzel-bash-*.log`.
+- `!command` shortcut: runs shell directly with no LLM call; `!` highlights bold white while typing; `! bash` hint in input footer.
+### Fixed
+- Hazzel identity guard: always Hazzel, never ChatGPT/Claude/Gemini/DeepSeek/Grok.
+- Turn card only shows when a tool acted; greetings, single-char inputs, and read-only turns print just the reply.
+
 ## [1.3.2] - 2026-09-11
 ### Added
 - Windows support with no new dependencies: plain-prompt fallbacks where Unix raw-terminal menus can't run, ANSI enabled via console mode, Windows-safe process control and read-only commands.

@@ -238,11 +238,13 @@ MENTION_RESET = "\x1b[0m"
 def _highlight_mentions(buffer):
     from hazzel.mentions import MENTION_RE, TRAILING_PUNCT
 
+    bang = (buffer or "").startswith("!")
+    body = (buffer or "")[1:] if bang else (buffer or "")
     parts = []
     pos = 0
-    for match in MENTION_RE.finditer(buffer or ""):
+    for match in MENTION_RE.finditer(body):
         if match.start() > pos:
-            parts.append(buffer[pos:match.start()])
+            parts.append(body[pos:match.start()])
         token = match.group(0)
         tail = ""
         while token and token[-1] in TRAILING_PUNCT:
@@ -255,8 +257,11 @@ def _highlight_mentions(buffer):
         if tail:
             parts.append(tail)
         pos = match.end()
-    parts.append(buffer[pos:])
-    return "".join(parts)
+    parts.append(body[pos:])
+    out = "".join(parts)
+    if bang:
+        return "\x1b[1m\x1b[97m!\x1b[0m" + out
+    return out
 
 
 def get_input(messages=None):
@@ -395,9 +400,9 @@ def get_input(messages=None):
                 _plan_bit = ""
                 _goal_bit = ""
             if tok:
-                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit}{_goal_bit} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit}{_goal_bit} · @ tag · ! bash · /exit{rst}")
             else:
-                lines.append(f"  \x1b[2m{mid}{_plan_bit}{_goal_bit} · @ tag file · /exit quit{rst}")
+                lines.append(f"  \x1b[2m{mid}{_plan_bit}{_goal_bit} · @ tag · ! bash · /exit{rst}")
 
             nlines = _visual_rows(lines)
             out = "\r\n".join(lines)
@@ -729,6 +734,74 @@ def _read_expand_key():
         return False
 
 
+_quiet = False
+
+
+def set_quiet(value=True):
+    global _quiet
+    _quiet = bool(value)
+    return _quiet
+
+
+def is_quiet():
+    return _quiet
+
+
+def show_turn_from_trace(user_command, trace, summary):
+    rows = []
+    for t in trace or []:
+        if t.get("cached"):
+            continue
+        detail = str(t.get("detail") or "")
+        if len(detail) > 42:
+            detail = detail[:41].rstrip() + "…"
+        rows.append((t.get("tool", ""), detail, bool(t.get("success"))))
+    rows = rows[:8]
+    lines = []
+    for line in str(summary or "").splitlines():
+        line = line.strip()
+        if line:
+            lines.append(line)
+        if len(lines) >= 4:
+            break
+    if not lines:
+        lines = ["Done."]
+    try:
+        from . import config as _config
+        model = _config.get_current_display_name()
+        root = _short_path(_config.PROJECT_ROOT)
+    except Exception:
+        model = "Hazzel 1.3.2"
+        root = "~/hazzel"
+    show_turn_card(user_command, rows, lines, model=model, root=root)
+
+
+def show_turn_card(user_command, tool_rows, summary_lines, model="Hazzel 1.3.2", root="~/hazzel"):
+    body = Text()
+    body.append(f"{model}\n", style=f"bold {HAZZEL_COLOR}")
+    body.append(f"{root}\n\n", style=DIM_COLOR)
+    body.append("❯ ", style="dim")
+    body.append(f"{user_command}\n\n", style="white")
+    for name, detail, success in tool_rows or []:
+        icon = "●" if success else "✗"
+        color = SUCCESS_COLOR if success else ERROR_COLOR
+        body.append(f"  {icon} ", style=f"bold {color}")
+        body.append(f"{str(name).ljust(12)}", style="bold")
+        if detail:
+            body.append(f" {detail}\n", style=DIM_COLOR)
+        else:
+            body.append("\n")
+    if tool_rows:
+        body.append("\n")
+    body.append("─" * 38 + "\n", style="dim")
+    for line in summary_lines or []:
+        body.append(f"{line}\n", style="white")
+    body.append("\n")
+    body.append("❯ ", style="dim")
+    body.append("█", style="white")
+    console.print(Panel(body, title=f"{model} ── {root}", border_style="dim", padding=(1, 2)))
+
+
 def show_hazzel_message(message):
     hide_loader()
     if not message or not message.strip():
@@ -803,6 +876,8 @@ def _format_elapsed(seconds):
 
 
 def show_tool(tool_name, detail="", success=True, exit_code=None, cached=False, elapsed=None):
+    if _quiet:
+        return
     icon = "●" if success else "✗"
     color = SUCCESS_COLOR if success else ERROR_COLOR
     limit = 45 if exit_code is not None else 62
