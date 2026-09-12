@@ -1,4 +1,5 @@
 from .. import safety
+from .. import tool_cache
 from .. import ui
 from ..config import resolve_project_path
 from .search_files import missing_file_message
@@ -88,4 +89,5 @@ def apply_edits(edits):
         return f"Tool error: failed to apply edits ({error}). Rolled back."
     names = ", ".join(p["display"] for _, p in changed[:4])
     extra = "" if len(changed) <= 4 else f" +{len(changed) - 4} more"
+    tool_cache.invalidate_fs()
     return f"Applied {total} edits across {files} files: {names}{extra}."

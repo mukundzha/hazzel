@@ -1,4 +1,5 @@
 from .. import safety
+from .. import tool_cache
 from .. import ui
 from ..config import resolve_project_path
 
@@ -29,4 +30,5 @@ def write_file(path, content):
     except OSError as error:
         return f"Tool error: cannot write file ({error}). Check the path and permissions."
 
+    tool_cache.invalidate_fs()
     return "Written."

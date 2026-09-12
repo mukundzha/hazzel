@@ -1,3 +1,4 @@
+from .. import tool_cache
 from ..config import resolve_project_path
 
 
@@ -6,6 +7,12 @@ def list_files(path):
         path = resolve_project_path(path)
     except ValueError as error:
         return str(error)
+
+    key = str(path)
+    if tool_cache.caching_enabled():
+        hit = tool_cache.LIST.get(key)
+        if hit is not None:
+            return list(hit)
 
     if not path.exists():
         return f"Path does not exist: {path}. Check the spelling or list a parent directory."
@@ -20,4 +27,6 @@ def list_files(path):
     names = [item.name + ("/" if item.is_dir() else "") for item in items[:200]]
     if len(items) > 200:
         names.append(f"[{len(items) - 200} more; use search_files to narrow]")
+    if tool_cache.caching_enabled():
+        tool_cache.LIST.set(key, names)
     return names

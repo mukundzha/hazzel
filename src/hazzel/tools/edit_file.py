@@ -1,4 +1,5 @@
 from .. import safety
+from .. import tool_cache
 from .. import ui
 from ..config import resolve_project_path
 from .search_files import missing_file_message
@@ -41,5 +42,6 @@ def edit_file(path, old_text, new_text):
     safety.checkpoint(resolved)
     resolved.write_text(updated)
 
+    tool_cache.invalidate_fs()
     return "Edited."
 

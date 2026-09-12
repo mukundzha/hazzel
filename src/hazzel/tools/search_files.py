@@ -1,6 +1,9 @@
 import os
 import re
+import shutil
+import subprocess
 
+from .. import tool_cache
 from ..config import PROJECT_ROOT, resolve_project_path
 
 SKIP_DIRS = frozenset({
@@ -14,6 +17,11 @@ SKIP_DIRS = frozenset({
 MAX_MATCHES = 30
 MAX_FILE_BYTES = 2_000_000
 MAX_LINE_CHARS = 160
+
+
+RG_TIMEOUT = 15
+
+_no_match_message = "No matches found for '{pattern}' in '{path}'. Try a shorter literal, regex=True, or a wider path."
 
 
 def search_files(pattern, path=".", regex=False):
@@ -30,12 +38,79 @@ def search_files(pattern, path=".", regex=False):
 
     if regex:
         try:
-            regex = re.compile(pattern)
+            compiled = re.compile(pattern)
         except re.error as error:
             return f"Invalid regex: {error}. Fix the pattern or retry with regex=False for a literal search."
     else:
-        regex = re.compile(re.escape(pattern))
+        compiled = re.compile(re.escape(pattern))
 
+    key = (pattern, str(root), bool(regex))
+    use_cache = tool_cache.caching_enabled()
+    if use_cache:
+        hit = tool_cache.SEARCH.get(key)
+        if hit is not None:
+            return hit
+
+    fast = _rg_search(pattern, root, bool(regex), path)
+    result = fast if fast is not None else _py_search(compiled, root, pattern, path)
+    if use_cache:
+        tool_cache.SEARCH.set(key, result)
+    return result
+
+
+def _rg_search(pattern, root, use_regex, display="."):
+    if not shutil.which("rg"):
+        return None
+    cmd = ["rg", "--no-heading", "--line-number", "--color=never", "--hidden",
+           "--max-columns=200", f"--max-count={MAX_MATCHES + 1}"]
+    for skipped in SKIP_DIRS:
+        cmd += ["--glob", f"!{skipped}/**"]
+    cmd += ["--glob", "!*.egg-info/**", "--max-filesize", str(MAX_FILE_BYTES)]
+    if use_regex:
+        cmd += ["-e", pattern]
+    else:
+        cmd += ["-F", "-e", pattern]
+    cmd.append(str(root) if root.is_file() else str(root))
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                              timeout=RG_TIMEOUT, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode == 1:
+        return _no_match_message.format(pattern=pattern, path=display)
+    if proc.returncode != 0:
+        return None
+    try:
+        text = proc.stdout.decode("utf-8", errors="replace")
+    except (ValueError, UnicodeDecodeError):
+        return None
+    matches = []
+    truncated = False
+    for raw_line in text.splitlines():
+        parts = raw_line.split(":", 2)
+        if len(parts) < 3:
+            continue
+        file_part, number, content = parts
+        try:
+            rel = os.path.relpath(os.path.join(str(root), file_part) if not os.path.isabs(file_part) else file_part, PROJECT_ROOT)
+        except ValueError:
+            rel = file_part
+        line = content.strip()
+        if len(line) > MAX_LINE_CHARS:
+            line = line[:MAX_LINE_CHARS] + "…"
+        if len(matches) >= MAX_MATCHES:
+            truncated = True
+            break
+        matches.append(f"{rel}:{number.strip()}: {line}")
+    if not matches:
+        return _no_match_message.format(pattern=pattern, path=display)
+    output = "\n".join(matches)
+    if truncated:
+        output += f"\n[Truncated at {MAX_MATCHES} matches; narrow the pattern or path]"
+    return output
+
+
+def _py_search(compiled, root, pattern, path):
     matches = []
     truncated = False
 
@@ -60,12 +135,12 @@ def search_files(pattern, path=".", regex=False):
         text = data.decode("utf-8", errors="replace")
 
         # One search over the whole file skips non-matching files without splitting lines.
-        if not regex.search(text):
+        if not compiled.search(text):
             continue
 
         rel = os.path.relpath(file_path, PROJECT_ROOT)
         for number, line in enumerate(text.splitlines(), 1):
-            if regex.search(line):
+            if compiled.search(line):
                 if len(matches) >= MAX_MATCHES:
                     truncated = True
                     break
@@ -78,12 +153,19 @@ def search_files(pattern, path=".", regex=False):
             break
 
     if not matches:
-        return f"No matches found for '{pattern}' in '{path}'. Try a shorter literal, regex=True, or a wider path."
+        return _no_match_message.format(pattern=pattern, path=path)
 
     output = "\n".join(matches)
     if truncated:
         output += f"\n[Truncated at {MAX_MATCHES} matches; narrow the pattern or path]"
     return output
+
+
+def _name_index():
+    try:
+        return [(os.path.basename(p).lower(), os.path.relpath(p, PROJECT_ROOT)) for p in _iter_files(PROJECT_ROOT)]
+    except OSError:
+        return []
 
 
 def missing_file_message(path, limit=3):
@@ -92,11 +174,22 @@ def missing_file_message(path, limit=3):
     name = os.path.basename(str(path).rstrip("/")).lower()
     matches = []
     if name:
-        for file_path in _iter_files(PROJECT_ROOT):
-            if os.path.basename(file_path).lower() == name:
-                matches.append(os.path.relpath(file_path, PROJECT_ROOT))
-                if len(matches) >= limit:
-                    break
+        if tool_cache.caching_enabled():
+            index = tool_cache.NAME_INDEX.get("all")
+            if index is None:
+                index = _name_index()
+                tool_cache.NAME_INDEX.set("all", index)
+            for base, rel in index:
+                if base == name:
+                    matches.append(rel)
+                    if len(matches) >= limit:
+                        break
+        else:
+            for file_path in _iter_files(PROJECT_ROOT):
+                if os.path.basename(file_path).lower() == name:
+                    matches.append(os.path.relpath(file_path, PROJECT_ROOT))
+                    if len(matches) >= limit:
+                        break
     message = f"File does not exist: {path}"
     if matches:
         message += f". Did you mean: {', '.join(matches)}?"

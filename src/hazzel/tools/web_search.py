@@ -3,6 +3,8 @@ import re
 import urllib.parse
 import urllib.request
 
+from .. import tool_cache
+
 SEARCH_URL = "https://html.duckduckgo.com/html/"
 TIMEOUT = 15
 MAX_RESULTS = 10
@@ -39,6 +41,11 @@ def web_search(query, count=5):
     except (TypeError, ValueError):
         count = 5
     count = max(1, min(count, MAX_RESULTS))
+    key = (query.strip(), count)
+    if tool_cache.caching_enabled():
+        hit = tool_cache.WEB.get(key)
+        if hit is not None:
+            return hit
     body = urllib.parse.urlencode({"q": query.strip()}).encode("utf-8")
     request = urllib.request.Request(
         SEARCH_URL,
@@ -78,4 +85,7 @@ def web_search(query, count=5):
         lines.append(f"{i}. {title}\n   {url}")
         if snippet:
             lines.append(f"   {snippet}")
-    return "\n".join(lines)
+    out = "\n".join(lines)
+    if tool_cache.caching_enabled():
+        tool_cache.WEB.set(key, out)
+    return out

@@ -685,18 +685,50 @@ def _resume_loader(was_active, text="Working…"):
 
 
 _stream_buffer = ""
+_stream_started = None
+_stream_first_at = None
+_stream_tokens = 0
+_stream_last_paint = 0.0
 
 
 def begin_stream():
-    global _stream_buffer
+    global _stream_buffer, _stream_started, _stream_first_at, _stream_tokens, _stream_last_paint
     _stream_buffer = ""
+    _stream_started = time.monotonic()
+    _stream_first_at = None
+    _stream_tokens = 0
+    _stream_last_paint = 0.0
 
 
 def push_stream_token(token):
-    global _stream_buffer
+    global _stream_buffer, _stream_first_at, _stream_tokens, _stream_last_paint
     if not token:
         return
+    now = time.monotonic()
+    if _stream_first_at is None:
+        _stream_first_at = now
     _stream_buffer += token
+    _stream_tokens += 1
+    if _loader is None:
+        return
+    if now - _stream_last_paint < 0.4 and _stream_tokens % 25:
+        return
+    _stream_last_paint = now
+    try:
+        ttft = _stream_first_at - (_stream_started or _stream_first_at)
+        _loader.update(_live_body(f"Working… · ttft {ttft:.1f}s · {_stream_tokens} tokens"))
+    except OSError:
+        pass
+
+
+def stream_stats():
+    start = _stream_started or time.monotonic()
+    first = _stream_first_at
+    return {
+        "tokens": _stream_tokens,
+        "ttft": ((first - start) if first else 0.0),
+        "elapsed": time.monotonic() - start,
+    }
 
 
 def end_stream():

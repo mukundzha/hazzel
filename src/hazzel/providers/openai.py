@@ -42,10 +42,14 @@ class OpenAIProvider(BaseProvider):
             "tools": tools,
             "max_tokens": 10000,
         }
-        if self.provider_name == "OpenAI":
+        if self.provider_name in ("OpenAI", "OpenRouter"):
             kwargs["prompt_cache_key"] = "hazzel-v1"
         if stream:
             kwargs["stream"] = True
+            try:
+                kwargs["stream_options"] = {"include_usage": True}
+            except (TypeError, ValueError):
+                pass
         return kwargs
 
     def _connect_error(self, e):

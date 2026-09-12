@@ -1,8 +1,11 @@
+import concurrent.futures
 import html
 import ipaddress
 import re
 import urllib.parse
 import urllib.request
+
+from .. import tool_cache
 
 MAX_BYTES = 1_500_000
 DEFAULT_MAX_CHARS = 2000
@@ -107,7 +110,7 @@ def _condense(lines, query, budget):
 MAX_URLS = 5
 
 
-def _fetch_one(url, max_chars, query):
+def _fetch_uncached(url, max_chars, query):
     url = url.strip().strip("'\"<>")
     try:
         parsed = urllib.parse.urlparse(url)
@@ -160,6 +163,23 @@ def _fetch_one(url, max_chars, query):
     return "\n".join(out)
 
 
+def _fetch_one(url, max_chars, query):
+    try:
+        budget = int(max_chars)
+    except (TypeError, ValueError):
+        budget = DEFAULT_MAX_CHARS
+    budget = max(500, min(budget, 20000))
+    key = (str(url).strip(), budget, str(query or ""))
+    if tool_cache.caching_enabled():
+        hit = tool_cache.FETCH.get(key)
+        if hit is not None:
+            return hit
+    result = _fetch_uncached(url, budget, query)
+    if tool_cache.caching_enabled() and result.startswith("Fetched "):
+        tool_cache.FETCH.set(key, result)
+    return result
+
+
 def fetch_url(url="", max_chars=DEFAULT_MAX_CHARS, query="", urls=None):
     targets = []
     if isinstance(url, list):
@@ -182,9 +202,10 @@ def fetch_url(url="", max_chars=DEFAULT_MAX_CHARS, query="", urls=None):
     budget = max(500, min(budget, 20000))
     picked = targets[:MAX_URLS]
     share = max(500, budget // len(picked))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(picked), thread_name_prefix="hazzel-fetch") as pool:
+        bodies = list(pool.map(lambda t: _fetch_one(t, share, query), picked))
     sections = []
-    for i, target in enumerate(picked, 1):
-        body = _fetch_one(target, share, query)
+    for i, (target, body) in enumerate(zip(picked, bodies), 1):
         sections.append(f"=== [{i}/{len(picked)}] {target.strip()} ===\n{body}")
     if len(targets) > MAX_URLS:
         sections.append(f"[…{len(targets) - MAX_URLS} more URLs skipped, max {MAX_URLS} per call…]")

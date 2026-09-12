@@ -55,17 +55,26 @@ class GroqProvider(BaseProvider):
         return ChatResponse(content=content, tool_calls=tool_calls, usage=_extract_usage(resp), reasoning=extract_reasoning(choice))
 
     def stream(self, messages, tools, on_token=None):
+        def _open_stream(with_usage=True):
+            kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "tools": tools,
+                "max_tokens": 10000,
+                "stream": True,
+            }
+            if with_usage:
+                kwargs["stream_options"] = {"include_usage": True}
+            return self.client.chat.completions.create(**kwargs)
+
         try:
-            chunks = call_with_backoff(
-                self.provider_name,
-                lambda: self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                    max_tokens=10000,
-                    stream=True,
-                ),
-            )
+            try:
+                chunks = call_with_backoff(self.provider_name, lambda: _open_stream(True))
+            except Exception as first_error:
+                if "stream_options" in str(first_error).lower():
+                    chunks = call_with_backoff(self.provider_name, lambda: _open_stream(False))
+                else:
+                    raise
         except Exception:
             return super().stream(messages, tools, on_token)
         parts = []

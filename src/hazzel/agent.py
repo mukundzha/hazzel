@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import os
 import re
@@ -32,7 +33,7 @@ from hazzel.tools.write_file import write_file
 
 SYSTEM_PROMPT = """You are Hazzel by Mukund Jha (providers supply only the model). Contact: mukundzha33@gmail.com.
 Senior eng agent: think, act, verify. Smallest correct change. Direct, concise, honest.
-Efficiency rules: search_files first, never re-read; batch independent calls in one block; stop when done; one verify command max. @path files are pre-attached in context; use them, never re-read them.
+Efficiency rules: search_files first, never re-read; batch independent reads in one block (they run in parallel); stop when done; one verify command max. @path files are pre-attached in context; use them, never re-read them.
 Package installs (pip/download): run `pip install <names>` via run_command immediately. Never edit pyproject.toml, requirements, or manifests to install something.
 Scope: respect user limits strictly. Do ONLY what was asked — nothing extra, nothing unasked.
 Prohibited unless explicitly requested: editing files the user didn't mention, installing/uninstalling packages, running commands, reformatting or refactoring unrelated code, creating docs/tests.
@@ -231,6 +232,96 @@ def _plan_blocked(tool_name, arguments):
             action = str(arguments.get("action", "") or "list").lower()
         return action not in ("list", "view", "diff", "checks")
     return False
+
+
+PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"})
+PARALLEL_MAX_WORKERS = 8
+PARALLEL_TOOL_TIMEOUT = 60.0
+
+
+def _is_parallel_safe(tool_name, arguments):
+    if tool_name in PARALLEL_SAFE:
+        return True
+    if tool_name == "git_branch":
+        action = str((arguments or {}).get("action", "") or "current").lower()
+        return action in ("current", "list", "log")
+    if tool_name == "github_pr":
+        action = str((arguments or {}).get("action", "") or "list").lower()
+        return action in ("list", "view", "diff", "checks")
+    return False
+
+
+def _tool_detail(tool_name, arguments):
+    detail = arguments.get(
+        "pattern",
+        arguments.get("path", arguments.get("url", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", "")))))),
+    )
+    if tool_name == "apply_edits" and isinstance(arguments, dict):
+        paths = []
+        for item in arguments.get("edits", []) or []:
+            if isinstance(item, dict):
+                p = item.get("path") or item.get("file") or ""
+                if p and p not in paths:
+                    paths.append(p)
+        detail = ", ".join(paths[:4])
+    if tool_name == "web_search" and isinstance(arguments, dict):
+        detail = str(arguments.get("query", "") or "").strip()[:80]
+    if tool_name == "fetch_url" and isinstance(arguments, dict):
+        targets = arguments.get("urls") or []
+        if isinstance(targets, list) and targets:
+            detail = ", ".join(str(t) for t in targets[:2])
+    if tool_name == "github_pr" and isinstance(arguments, dict):
+        sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
+        if sub:
+            detail = f"{arguments.get('action', 'list')} {sub}".strip()
+    return detail
+
+
+def _tool_cache_key(tool_name, arguments, detail):
+    if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"):
+        return (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
+    return None
+
+
+def _run_one_tool(tool_name, arguments):
+    started = time.monotonic()
+    try:
+        result = run_tool(tool_name, arguments)
+    except KeyboardInterrupt:
+        raise
+    except Exception as error:
+        return f"Tool error: {error}. Retry, or try a smaller step.", time.monotonic() - started
+    if isinstance(result, list):
+        result = "\n".join(result) or "(empty directory)"
+    else:
+        result = str(result)
+    return result, time.monotonic() - started
+
+
+def _finalize_result(result):
+    result = _distill_result(result)
+    low = result.lower()
+    success = not low.startswith((
+        "unknown tool",
+        "missing required",
+        "tool error",
+        "invalid",
+        "command failed",
+        "command cancelled",
+        "command timed out",
+        "edit cancelled",
+        "edits cancelled",
+        "applied nothing",
+        "write cancelled",
+        "commit cancelled",
+        "branch cancelled",
+        "pr cancelled",
+        "blocked:",
+        "not a git repo",
+    ))
+    match = re.search(r"exit code (\d+)", low)
+    exit_code = int(match.group(1)) if match else None
+    return result, success, exit_code
 
 _TOOL_ALIASES = {
     "print_tree": "list_files",
@@ -1427,139 +1518,104 @@ def run(messages, user_input):
         })
 
         round_start = len(trace)
+        jobs = []
         for tc in response.tool_calls:
             tool_name = tc.name
-
             try:
                 if tc.arguments and len(tc.arguments) > 20000:
                     raise ValueError("tool arguments too large")
                 arguments = json.loads(tc.arguments) if tc.arguments else {}
-
                 if not isinstance(arguments, dict):
                     arguments = {}
-
             except (json.JSONDecodeError, ValueError):
-                result = "Invalid tool arguments."
-
-                task_messages.append({
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": tc.id,
-                })
-
-                trace.append({
-                    "tool": tool_name,
-                    "args": {},
-                    "detail": "",
-                    "result": result,
-                    "success": False,
-                    "exit_code": None,
-                })
-
+                task_messages.append({"role": "tool", "content": "Invalid tool arguments.", "tool_call_id": tc.id})
+                trace.append({"tool": tool_name, "args": {}, "detail": "", "result": "Invalid tool arguments.", "success": False, "exit_code": None})
                 continue
+            detail = _tool_detail(tool_name, arguments)
+            cache_key = _tool_cache_key(tool_name, arguments, detail)
+            cached = bool(cache_key and cache_key in seen_reads)
+            if cache_key and not cached:
+                seen_reads.add(cache_key)
+            jobs.append({"tc": tc, "tool": tool_name, "args": arguments, "detail": detail, "cache_key": cache_key, "cached": cached})
 
-            detail = arguments.get(
-                "pattern",
-                arguments.get("path", arguments.get("url", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", "")))))),
-            )
-            if tool_name == "apply_edits" and isinstance(arguments, dict):
-                paths = []
-                for item in arguments.get("edits", []) or []:
-                    if isinstance(item, dict):
-                        p = item.get("path") or item.get("file") or ""
-                        if p and p not in paths:
-                            paths.append(p)
-                detail = ", ".join(paths[:4])
-            if tool_name == "web_search" and isinstance(arguments, dict):
-                detail = str(arguments.get("query", "") or "").strip()[:80]
-            if tool_name == "fetch_url" and isinstance(arguments, dict):
-                targets = arguments.get("urls") or []
-                if isinstance(targets, list) and targets:
-                    detail = ", ".join(str(t) for t in targets[:2])
-            if tool_name == "github_pr" and isinstance(arguments, dict):
-                sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
-                if sub:
-                    detail = f"{arguments.get('action', 'list')} {sub}".strip()
-
-            cache_key = None
-            cached = False
-            elapsed = None
-            try:
-                if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"):
-                    cache_key = (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
-                    if cache_key in seen_reads:
-                        result = "(already in context above; do not re-read)"
-                        cached = True
-                    else:
-                        seen_reads.add(cache_key)
-                        started = time.monotonic()
-                        result = run_tool(tool_name, arguments)
-                        elapsed = time.monotonic() - started
-                else:
-                    result = run_tool(tool_name, arguments)
-            except KeyboardInterrupt:
-                raise
-            except Exception as error:
-                result = f"Tool error: {error}. Retry, or try a smaller step."
-
-            if isinstance(result, list):
-                result = "\n".join(result) or "(empty directory)"
+        batch_keys = set()
+        for job in jobs:
+            if job["cached"] or not job["cache_key"]:
+                continue
+            if job["cache_key"] in batch_keys:
+                job["cached"] = True
+                job["result"] = "(already in context above; do not re-read)"
+                job["elapsed"] = None
             else:
-                result = str(result)
+                batch_keys.add(job["cache_key"])
 
-            result = _distill_result(result)
-
-            low = result.lower()
-
-            success = not low.startswith((
-                "unknown tool",
-                "missing required",
-                "tool error",
-                "invalid",
-                "command failed",
-                "command cancelled",
-                "command timed out",
-                "edit cancelled",
-                "edits cancelled",
-                "applied nothing",
-                "write cancelled",
-                "commit cancelled",
-                "branch cancelled",
-                "pr cancelled",
-                "blocked:",
-                "not a git repo",
-            ))
-
-            match = re.search(r"exit code (\d+)", low)
-            exit_code = int(match.group(1)) if match else None
-
-            try:
-                ui.show_tool(
-                    tool_name,
-                    detail,
-                    success=success,
-                    exit_code=exit_code,
-                    cached=cached,
-                    elapsed=elapsed,
-                )
-            except Exception:
-                pass
-
-            task_messages.append({
-                "role": "tool",
-                "content": result,
-                "tool_call_id": tc.id,
-            })
-
-            trace.append({
-                "tool": tool_name,
-                "args": arguments,
-                "detail": detail,
-                "result": result,
-                "success": success,
-                "exit_code": exit_code,
-                "cached": cached,
-            })
+        parallel_ok = len(jobs) > 1 and all(_is_parallel_safe(j["tool"], j["args"]) for j in jobs)
+        if parallel_ok:
+            todo = [j for j in jobs if not j["cached"]]
+            if todo:
+                workers = min(PARALLEL_MAX_WORKERS, len(todo))
+                try:
+                    ui.show_loader(f"Working… · {len(todo)} parallel")
+                except Exception:
+                    pass
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="hazzel-tool") as pool:
+                    future_map = {pool.submit(_run_one_tool, j["tool"], j["args"]): j for j in todo}
+                    try:
+                        for fut in concurrent.futures.as_completed(future_map):
+                            job = future_map[fut]
+                            try:
+                                raw, elapsed = fut.result(timeout=PARALLEL_TOOL_TIMEOUT)
+                            except concurrent.futures.TimeoutError:
+                                raw, elapsed = f"Tool timed out after {PARALLEL_TOOL_TIMEOUT:.0f} seconds. Retry with a narrower scope.", PARALLEL_TOOL_TIMEOUT
+                            except KeyboardInterrupt:
+                                for f in future_map:
+                                    f.cancel()
+                                raise
+                            job["result"] = raw
+                            job["elapsed"] = elapsed
+                            fres, fok, fexit = _finalize_result(raw)
+                            job["_final"] = (fres, fok, fexit)
+                            try:
+                                ui.show_tool(job["tool"], job["detail"], success=fok, exit_code=fexit, elapsed=elapsed)
+                            except Exception:
+                                pass
+                    except KeyboardInterrupt:
+                        for f in future_map:
+                            f.cancel()
+                        raise
+            for job in jobs:
+                if job["cached"] and "result" not in job:
+                    job["result"] = "(already in context above; do not re-read)"
+                    job["elapsed"] = None
+                if "_final" in job:
+                    result, success, exit_code = job.pop("_final")
+                elif job["cached"]:
+                    result, success, exit_code = job["result"], True, None
+                else:
+                    result, success, exit_code = _finalize_result(job["result"])
+                    try:
+                        ui.show_tool(job["tool"], job["detail"], success=success, exit_code=exit_code, elapsed=job.get("elapsed"))
+                    except Exception:
+                        pass
+                job["elapsed"] = job.get("elapsed") if not job["cached"] else None
+                task_messages.append({"role": "tool", "content": result, "tool_call_id": job["tc"].id})
+                trace.append({"tool": job["tool"], "args": job["args"], "detail": job["detail"], "result": result, "success": success, "exit_code": exit_code, "cached": job["cached"]})
+        else:
+            for job in jobs:
+                if job["cached"]:
+                    result, success, exit_code, elapsed = job["result"] if "result" in job else "(already in context above; do not re-read)", True, None, None
+                else:
+                    try:
+                        raw, elapsed = _run_one_tool(job["tool"], job["args"])
+                    except KeyboardInterrupt:
+                        raise
+                    result, success, exit_code = _finalize_result(raw)
+                try:
+                    ui.show_tool(job["tool"], job["detail"], success=success, exit_code=exit_code, cached=job["cached"], elapsed=elapsed)
+                except Exception:
+                    pass
+                task_messages.append({"role": "tool", "content": result, "tool_call_id": job["tc"].id})
+                trace.append({"tool": job["tool"], "args": job["args"], "detail": job["detail"], "result": result, "success": success, "exit_code": exit_code, "cached": job["cached"]})
 
         round_entries = trace[round_start:]
         sig = tuple(sorted((t.get("tool"), str(t.get("detail"))) for t in round_entries))

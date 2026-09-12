@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-09-12
+### Added
+- Parallel tool execution: independent read-only calls (`list/read/search`, `git status/diff`, `web_search`, `fetch_url`, `review_diff`, read-only `git_branch`/`github_pr`) run concurrently in a ThreadPoolExecutor with order preserved; write/run/commit batches stay sequential. World-class hardening: per-tool 60s timeout, `as_completed` live tool rows with ordered message commit, `Working… · N parallel` loader state.
+- Streaming: live TTFT + token-count in the loader (`ttft 0.4s · N tokens`, throttled repaints), no double-print — tool-call turns still discard the preview buffer.
+- Prompt caching: `stream_options.include_usage` on OpenAI/Groq streams for real (non-estimated) usage, `prompt_cache_key` extended to OpenRouter, Anthropic `cache_control` on tools + system + last user message, and full `message_start` cache-read usage accounting.
+- 10x tool-speed system (`tool_cache.py`): ripgrep-first `search_files` with 20s result cache, TTL caches for `web_search`/`fetch_url`/`list_files`/filename index (writes invalidate), parallel multi-URL fetch (5 pages in one call's time), cached `git is_repo` plus single-call `status` branch parse. Measured: repeat search 134x, 3-page fetch 3x, 3x `is_repo` → 1 subprocess.
+
 ## [1.3.5] - 2026-09-12
 ### Added
 - Live context meter in the input footer (`12.4%/1.0M (auto)`): per-model context windows, green/amber/red thresholds, session-burn tracking that climbs as you work.

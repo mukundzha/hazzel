@@ -4,6 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import tool_cache
 from .config import PROJECT_ROOT, resolve_project_path
 
 GIT_TIMEOUT = 10
@@ -41,8 +42,15 @@ def _run_git(args: list[str], timeout: int = GIT_TIMEOUT) -> tuple[bool, str]:
 
 
 def is_repo() -> bool:
+    if tool_cache.caching_enabled():
+        hit = tool_cache.REPO.get("repo")
+        if hit is not None:
+            return hit
     ok, out = _run_git(["rev-parse", "--is-inside-work-tree"])
-    return ok and out.strip() == "true"
+    result = ok and out.strip() == "true"
+    if tool_cache.caching_enabled():
+        tool_cache.REPO.set("repo", result)
+    return result
 
 
 def _require_repo() -> str | None:
@@ -58,13 +66,16 @@ def status_porcelain() -> tuple[bool, str, str]:
     ok, out = _run_git(["status", "--porcelain=v1", "-b"])
     if not ok:
         return False, out, ""
-    ok_b, branch = _run_git(["branch", "--show-current"])
-    branch = branch.strip() if ok_b else ""
+    branch = ""
+    for line in out.splitlines():
+        if line.startswith("## "):
+            branch = line[3:].split("...")[0].strip()
+            if branch.startswith("No commits yet on "):
+                branch = branch[len("No commits yet on "):]
+            break
     if not branch:
-        for line in out.splitlines():
-            if line.startswith("## "):
-                branch = line[3:].split("...")[0].strip()
-                break
+        ok_b, current = _run_git(["branch", "--show-current"])
+        branch = current.strip() if ok_b else ""
     return True, out.strip() or "(clean)", branch
 
 

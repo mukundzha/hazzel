@@ -69,6 +69,15 @@ def _messages_to_anthropic(messages):
             content = m.get("content") or ""
             tool_id = m.get("tool_call_id") or ""
             anth_msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_id, "content": str(content)}]})
+    for m in reversed(anth_msgs):
+        if m.get("role") == "user":
+            try:
+                blocks = m.get("content") or []
+                if blocks and isinstance(blocks, list) and isinstance(blocks[-1], dict):
+                    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
+            except Exception:
+                pass
+            break
     return system, anth_msgs
 
 
@@ -163,13 +172,26 @@ class AnthropicProvider(BaseProvider):
                         fragment = getattr(delta, "partial_json", "") or ""
                         if idx in acc:
                             acc[idx]["args"] += fragment
+                elif etype == "message_start":
+                    try:
+                        msg = getattr(event, "message", None)
+                        u = getattr(msg, "usage", None) if msg is not None else None
+                        if u is not None:
+                            prompt = int(getattr(u, "input_tokens", 0) or 0)
+                            cached = int(getattr(u, "cache_read_input_tokens", 0) or 0)
+                            created = int(getattr(u, "cache_creation_input_tokens", 0) or 0)
+                            if prompt or cached:
+                                usage = Usage(input_tokens=prompt, output_tokens=0, cached_tokens=cached + created)
+                    except Exception:
+                        pass
                 elif etype == "message_delta":
                     try:
                         u = getattr(event, "usage", None)
                         if u is not None:
                             out = int(getattr(u, "output_tokens", 0) or 0)
                             if out:
-                                usage = Usage(input_tokens=0, output_tokens=out)
+                                base = usage or Usage()
+                                usage = Usage(input_tokens=base.input_tokens, output_tokens=out, cached_tokens=base.cached_tokens)
                     except Exception:
                         pass
                 elif etype == "message_stop":
