@@ -14,6 +14,7 @@ from hazzel.mentions import expand_mentions, strip_mentions
 from hazzel.providers import get_provider
 from hazzel.providers.base import Usage
 from hazzel.tokens import estimate_messages, estimate_text
+from hazzel.tools.apply_edits import apply_edits
 from hazzel.tools.edit_file import edit_file
 from hazzel.tools.fetch_url import fetch_url
 from hazzel.tools.git_branch import git_branch
@@ -37,12 +38,12 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 13 functions and no others: list_files, read_file, search_files, write_file, edit_file, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file.
+Tools: you have EXACTLY these 14 functions and no others: list_files, read_file, search_files, write_file, edit_file, apply_edits, run_command, git_status, git_diff, git_commit, git_branch, github_pr, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file. For multi-file changes prefer one apply_edits call.
 Web: fetch_url is read-only — use it for docs, changelogs, and references; never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
 Review: review_diff is read-only — call it when the user asks for a review; path takes a file (@file works), codebase=true reviews staged+unstaged together; it returns severity-ranked findings, never edits.
 Goal: if a session goal is appended to the user message, steer every step toward it and briefly note progress. When the acceptance looks met, propose clearing the goal.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
-Never claim OpenAI/Anthropic/Mistral/Groq built you."""
+You are Hazzel, never ChatGPT/Claude/Gemini/DeepSeek/Grok/etc."""
 MAX_ITERATIONS = 114
 
 # Approximate token budget for persisted conversation history (excluding the system prompt).
@@ -96,6 +97,14 @@ TOOLS = [
             "name": "edit_file",
             "description": "Replace one unique anchor (<2k chars) in a file. Undoable.",
             "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_edits",
+            "description": "Apply up to 10 unique-anchor edits across files atomically with one approval. Undoable.",
+            "parameters": {"type": "object", "properties": {"edits": {"type": "array", "items": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}}}, "required": ["edits"]},
         },
     },
     {
@@ -173,7 +182,7 @@ TOOLS = [
     },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url", "review_diff"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "fetch_url", "review_diff"])
 
 PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "fetch_url", "review_diff"])
 
@@ -200,7 +209,7 @@ def _active_tools():
 
 
 def _plan_blocked(tool_name, arguments):
-    if tool_name in ("write_file", "edit_file", "run_command", "git_commit"):
+    if tool_name in ("write_file", "edit_file", "apply_edits", "run_command", "git_commit"):
         return True
     if tool_name == "git_branch":
         action = ""
@@ -233,8 +242,11 @@ _TOOL_ALIASES = {
     "write": "write_file",
     "new_file": "write_file",
     "patch": "edit_file",
-    "apply": "edit_file",
     "edit": "edit_file",
+    "multi_edit": "apply_edits",
+    "multiedit": "apply_edits",
+    "bulk_edit": "apply_edits",
+    "apply": "apply_edits",
     "bash": "run_command",
     "shell": "run_command",
     "exec": "run_command",
@@ -320,6 +332,26 @@ def _coerce_tool_args(tool_name, arguments):
             if args.get(k) is not None:
                 args["path"] = args[k]
                 break
+    elif tool_name == "apply_edits":
+        if "edits" not in args:
+            for k in ("changes", "items", "files"):
+                if isinstance(args.get(k), list):
+                    args["edits"] = args[k]
+                    break
+        if isinstance(args.get("edits"), list):
+            fixed = []
+            for item in args["edits"]:
+                if not isinstance(item, dict):
+                    fixed.append(item)
+                    continue
+                item = dict(item)
+                if "path" not in item:
+                    for k in ("file", "filename", "filepath", "target"):
+                        if item.get(k) is not None:
+                            item["path"] = item[k]
+                            break
+                fixed.append(item)
+            args["edits"] = fixed
     elif tool_name == "run_command" and "command" not in args:
         for k in ("cmd", "script", "bash", "shell"):
             if args.get(k) is not None:
@@ -477,6 +509,8 @@ def run_tool(tool_name, arguments):
             return write_file(arguments["path"], arguments["content"])
         if tool_name == "edit_file":
             return edit_file(arguments["path"], arguments["old_text"], arguments["new_text"])
+        if tool_name == "apply_edits":
+            return apply_edits(arguments["edits"])
         if tool_name == "run_command":
             cmd = arguments["command"]
             low = str(cmd).strip().lower()
@@ -541,7 +575,7 @@ def _build_summary_inner(trace, response_content, user_input):
         elif name == "write_file" and success:
             created.append(detail)
             actions.append(f"{name} {detail}".strip())
-        elif name == "edit_file" and success:
+        elif name in ("edit_file", "apply_edits") and success:
             changed.append(detail)
             actions.append(f"{name} {detail}".strip())
         elif name == "git_commit" and success:
@@ -750,10 +784,11 @@ def _enforce_turn_budget(task_messages):
 def _prove_changed_files(trace):
     files = []
     for t in trace or []:
-        if t.get("tool") in ("write_file", "edit_file") and t.get("success") and t.get("detail"):
-            detail = str(t["detail"]).strip()
-            if detail and detail not in files:
-                files.append(detail)
+        if t.get("tool") in ("write_file", "edit_file", "apply_edits") and t.get("success") and t.get("detail"):
+            for part in str(t["detail"]).split(","):
+                detail = part.strip()
+                if detail and detail not in files:
+                    files.append(detail)
     return files[:3]
 
 
@@ -1368,6 +1403,14 @@ def run(messages, user_input):
                 "pattern",
                 arguments.get("path", arguments.get("url", arguments.get("command", arguments.get("message", arguments.get("title", arguments.get("action", "")))))),
             )
+            if tool_name == "apply_edits" and isinstance(arguments, dict):
+                paths = []
+                for item in arguments.get("edits", []) or []:
+                    if isinstance(item, dict):
+                        p = item.get("path") or item.get("file") or ""
+                        if p and p not in paths:
+                            paths.append(p)
+                detail = ", ".join(paths[:4])
             if tool_name == "github_pr" and isinstance(arguments, dict):
                 sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
                 if sub:
@@ -1412,6 +1455,8 @@ def run(messages, user_input):
                 "command cancelled",
                 "command timed out",
                 "edit cancelled",
+                "edits cancelled",
+                "applied nothing",
                 "write cancelled",
                 "commit cancelled",
                 "branch cancelled",
@@ -1453,7 +1498,7 @@ def run(messages, user_input):
 
         round_entries = trace[round_start:]
         sig = tuple(sorted((t.get("tool"), str(t.get("detail"))) for t in round_entries))
-        progressed = any(t.get("tool") in ("write_file", "edit_file", "git_commit", "git_branch") and t.get("success") for t in round_entries)
+        progressed = any(t.get("tool") in ("write_file", "edit_file", "apply_edits", "git_commit", "git_branch") and t.get("success") for t in round_entries)
         if sig and sig == prev_sig and not progressed:
             stall_count += 1
         else:
