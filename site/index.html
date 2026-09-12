@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hazzel — a small terminal coding agent</title>
+<meta name="description" content="Hazzel lives in your terminal. It reads code, edits files, runs commands, and works with git — always with your approval first. Bring your own key.">
+<meta property="og:title" content="Hazzel — a small terminal coding agent">
+<meta property="og:description" content="Reads code, edits files, runs commands, works with git — always with your approval first.">
+<meta property="og:image" content="logo.png">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#"><img src="logo.png" alt="Hazzel"></a>
+  <nav>
+    <a href="#install">install</a>
+    <a href="#why">why</a>
+    <a href="#commands">commands</a>
+    <a href="https://github.com/mukundzha/hazzel">source</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Hazzel</h1>
+
+  <blockquote>Tiny, open, approval-first coding agent.</blockquote>
+
+  <p>Hazzel is a coding agent harness and CLI that lives in your terminal. It reads code, edits files, runs commands, and works with git — always with your approval first.</p>
+
+  <p>Its output is closer to a Unix shell than an IDE in the terminal: every step is visible, every mutation goes through you.</p>
+
+  <p>It is open source (AGPL-3.0), model-agnostic, and runs on macOS, Linux, and Windows.</p>
+
+  <h2 id="install">Install</h2>
+
+  <div class="install">
+    <code><span class="prompt">$ </span><span id="install-cmd">pip install hazzel</span></code>
+    <button id="copy-btn" type="button">copy</button>
+  </div>
+
+  <p>Supports macOS, Linux, and Windows on Python ≥ 3.10. Run <code>/model</code>, pick a provider, paste your key.</p>
+
+  <h2 id="why">Why Hazzel</h2>
+
+  <ul>
+    <li><strong>Approval-first</strong>: file changes show a diff before they apply, shell commands ask first, destructive git stays blocked.</li>
+    <li><strong>Small and inspectable</strong>: no background agents, no deploys, no hidden behavior — a terminal agent you can see through.</li>
+    <li><strong>Senior review built in</strong>: <code>/review</code> returns a verdict plus severity-ranked findings, scoped to a file or the whole codebase.</li>
+    <li><strong>Goal-driven</strong>: <code>/goal</code> pins an objective and every turn steers toward it until done.</li>
+    <li><strong>Token-efficient</strong>: web pages condense to query-relevant sentences, history compacts between turns.</li>
+    <li><strong>Model and provider agnostic</strong>: Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter, and local Ollama through one key each.</li>
+  </ul>
+
+    <div class="turn">
+      <p class="turn-head">Hazzel <span class="dim">1.3.2</span></p>
+      <p class="dim">~/hazzel</p>
+      <p class="turn-prompt">❯</p>
+      <p class="dim">openai/gpt-oss-120b · 0 tokens · build · @ tag file · /exit</p>
+    </div>
+
+  <h2 id="commands">Commands</h2>
+
+  <p class="group">Session</p>
+  <ul>
+    <li><code>/model</code> — switch provider and model</li>
+    <li><code>/goal [@objective]</code> — pin an objective, <code>/goal run</code> executes it</li>
+    <li><code>/plan on|off</code> — read-only exploration with a numbered plan</li>
+    <li><code>/prove on|off</code> — smoke-check edits before you trust them</li>
+    <li><code>/usage</code> — token spend this session</li>
+    <li><code>/clear</code> — reset the conversation</li>
+    <li><code>/logout</code> — wipe saved keys</li>
+  </ul>
+
+  <p class="group">Git</p>
+  <ul>
+    <li><code>/status</code> — working-tree status</li>
+    <li><code>/diff [--staged]</code> — changed files with a full-diff browser</li>
+    <li><code>/review [@file|codebase]</code> — senior-level review with fixes</li>
+    <li><code>/commit [message]</code> — drafted message, y/e/n approval</li>
+    <li><code>/branch</code> — list, create, switch</li>
+    <li><code>/log [n]</code> — recent commits</li>
+    <li><code>/push /pull /sync</code> — remote sync, never <code>--force</code></li>
+  </ul>
+
+  <p class="group">Pull requests</p>
+  <ul>
+    <li><code>/pr</code> — list open PRs</li>
+    <li><code>/pr view|diff|checks &lt;n&gt;</code> — read a PR</li>
+    <li><code>/pr comment|merge|close &lt;n&gt;</code> — act on a PR, approval first</li>
+    <li><code>/pr create &lt;title&gt;</code> — open a PR</li>
+  </ul>
+
+  <p class="group">Transcript</p>
+  <ul>
+    <li><code>/summary</code> — what the last turn did</li>
+    <li><code>/export [file]</code> — save the transcript to markdown</li>
+    <li><code>/copy [code]</code> — copy the last reply</li>
+    <li><code>/retry</code> — re-run your last message</li>
+    <li><code>/undo [n]</code> — revert file changes</li>
+    <li><code>/init [file]</code> — generate an AGENTS.md project map</li>
+    <li><code>/docs</code> — the full usage guide, in your terminal</li>
+  </ul>
+
+  <p><a href="https://github.com/mukundzha/hazzel/releases">changelog</a></p>
+</main>
+
+<footer>
+  <p><a href="https://github.com/mukundzha/hazzel">source</a> · <a href="https://pypi.org/project/hazzel/">pypi</a> · AGPL-3.0 · by Mukund Jha · if it fits your workflow, star the repo</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
