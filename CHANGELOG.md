@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.4.0] - 2026-09-13
 ### Added
+- AGENTS.md startup support: Hazzel reads a repo-level `AGENTS.md` at launch and merges the repo instructions into the system prompt, so project-specific guidance is included automatically without extra setup.
 - Skill system: drop a `SKILL.md` (frontmatter `name` + `description`) in `.hazzel/skills/<name>/`, `skills/<name>/`, `~/.config/hazzel/skills/<name>/`, or `~/.agents/skills/<name>/` and the model sees a per-turn catalog, loads instructions via the new read-only `skill(name)` tool (plan-mode safe), and follows them. `/skills` opens an interactive names-only picker (↑↓ navigate, Enter selects) that pastes `@<skill>` onto the input bar — type your message after it (prefill works on Windows via a native `msvcrt` input loop); `@skill` mentions resolve to the skill body, are traced as `skill` tool calls, and also surface in `@` autocomplete (files still win on name collisions). `/skills list` prints the catalog, `/skills <name>` previews one.
 
 ## [1.3.9] - 2026-09-13

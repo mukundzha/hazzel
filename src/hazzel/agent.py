@@ -48,6 +48,25 @@ Skills: a per-turn catalog of available skills is appended to this prompt when s
 Goal: if a session goal is appended to the user message, steer every step toward it and briefly note progress. When the acceptance looks met, propose clearing the goal.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 You are Hazzel, never ChatGPT/Claude/Gemini/DeepSeek/Grok/etc."""
+
+
+def build_system_prompt(root=None):
+    from pathlib import Path
+
+    prompt = SYSTEM_PROMPT
+    project_root = Path(root) if root is not None else Path(config.PROJECT_ROOT)
+    agents_path = project_root / "AGENTS.md"
+    if not agents_path.exists() or not agents_path.is_file():
+        return prompt
+    try:
+        repo_instructions = agents_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return prompt
+    if not repo_instructions:
+        return prompt
+    return f"{prompt}\n\nRepository instructions from AGENTS.md:\n{repo_instructions}"
+
+
 MAX_ITERATIONS = 114
 
 # Approximate token budget for persisted conversation history (excluding the system prompt).

@@ -9,7 +9,7 @@ from rich.console import Console
 
 console = Console()
 
-messages = [{"role": "system", "content": agent.SYSTEM_PROMPT}]
+messages = [{"role": "system", "content": agent.build_system_prompt(config.PROJECT_ROOT)}]
 
 _last_summary = None
 _last_trace = []
@@ -489,7 +489,7 @@ def main(argv=None):
             continue
         if user_input.strip().lower() in ["/clear", "/c", "clear"]:
             messages.clear()
-            messages.append({"role": "system", "content": agent.SYSTEM_PROMPT})
+            messages.append({"role": "system", "content": agent.build_system_prompt(config.PROJECT_ROOT)})
             agent.reset_conversation_state()
             _last_summary = None
             _last_trace = []
