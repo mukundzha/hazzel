@@ -38,30 +38,52 @@ def is_safe_command(command):
     return False
 
 
-def _checkpoint_rm_targets(command):
+def _checkpoint_path_token(token):
+    try:
+        if any(c in token for c in "*?["):
+            for match in sorted(PROJECT_ROOT.glob(token)):
+                if match.is_file():
+                    try:
+                        safety.checkpoint(match.resolve())
+                    except ValueError:
+                        continue
+            return
+        safety.checkpoint(resolve_project_path(token))
+    except ValueError:
+        pass
+
+
+def _checkpoint_destructive_targets(command):
     try:
         tokens = shlex.split(command)
     except ValueError:
         return
-    if not tokens or tokens[0] != "rm":
+    if not tokens:
         return
-    for token in tokens[1:]:
-        if token in _SHELL_OPS or token.startswith("-"):
+    first = tokens[0].rsplit("/", 1)[-1]
+    if first in ("rm", "rmdir"):
+        for token in tokens[1:]:
+            if token in _SHELL_OPS or token.startswith("-"):
+                if token in _SHELL_OPS:
+                    break
+                continue
+            _checkpoint_path_token(token)
+        return
+    if first in ("mv", "cp"):
+        dest = None
+        for token in tokens[1:]:
             if token in _SHELL_OPS:
                 break
-            continue
-        try:
-            if any(c in token for c in "*?["):
-                for match in sorted(PROJECT_ROOT.glob(token)):
-                    if match.is_file():
-                        try:
-                            safety.checkpoint(match.resolve())
-                        except ValueError:
-                            continue
+            if token.startswith("-"):
                 continue
-            safety.checkpoint(resolve_project_path(token))
-        except ValueError:
-            continue
+            dest = token
+        if dest:
+            _checkpoint_path_token(dest)
+        return
+
+
+def _checkpoint_rm_targets(command):
+    return _checkpoint_destructive_targets(command)
 
 
 DEFAULT_TIMEOUT = 30
@@ -122,7 +144,7 @@ def run_command(command, timeout=None, cwd=None, description=None, preapproved=F
         prompt += "\nAllow?"
         if not ui.confirm(prompt):
             return "Command cancelled by user"
-    _checkpoint_rm_targets(text)
+    _checkpoint_destructive_targets(text)
     proc = None
     try:
         proc = subprocess.Popen(

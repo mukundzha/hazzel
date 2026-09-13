@@ -139,9 +139,11 @@ _MENTION_TOKEN_RE = re.compile(r'(?:^|\s)@(?:"([^"]*)$|\'([^\']*)$|([^\s"\']*)$)
 
 _MENTION_ROWS = 8
 _MENTION_FILE_CAP = 5000
-_MENTION_CACHE_TTL = 10.0
+_MENTION_CACHE_TTL = 30.0
+_MENTION_EXTRA_SKIP = frozenset({"site", "dist", "build", ".venv"})
 
 _file_cache = {"root": None, "ts": 0.0, "files": []}
+_MAX_TOOL_ROWS = 8
 
 
 def _active_mention(buffer):
@@ -168,9 +170,10 @@ def _all_project_files():
         return _file_cache["files"]
     from hazzel.tools.search_files import SKIP_DIRS
 
+    skip = SKIP_DIRS | _MENTION_EXTRA_SKIP
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.endswith(".egg-info")]
+        dirnames[:] = [d for d in dirnames if d not in skip and not d.endswith(".egg-info")]
         dirnames.sort()
         for name in sorted(filenames):
             files.append(os.path.relpath(os.path.join(dirpath, name), root))
@@ -301,6 +304,34 @@ def get_input(messages=None):
     m_cands = []
     m_total = 0
     try:
+        from . import config as _cfg0
+
+        try:
+            _static_mid = _cfg0.get_current_model().split("/")[-1].lower()
+        except OSError:
+            _static_mid = ""
+        try:
+            _static_plan_bit = " · plan" if _cfg0.is_plan_enabled() else " · build"
+            _static_goal = _cfg0.get_goal() or {}
+            _static_gtext = (_static_goal.get("objective") or "").strip()
+            if len(_static_gtext) > 28:
+                _static_gtext = _static_gtext[:28] + "…"
+            _static_goal_bit = f" · ⚑ {_static_gtext}" if _static_gtext else ""
+        except Exception:
+            _static_plan_bit = ""
+            _static_goal_bit = ""
+    except Exception:
+        _static_mid = ""
+        _static_plan_bit = ""
+        _static_goal_bit = ""
+    try:
+        from hazzel import agent as _agent0
+
+        _used0, _window0 = _agent0.context_usage(messages)
+        _static_tok = format_context_meter(_used0, _window0)
+    except Exception:
+        _static_tok = ""
+    try:
         tty.setraw(fd)
         termios.tcflush(fd, termios.TCIFLUSH)
         sys.stdout.write("\x1b[?2004h")
@@ -325,33 +356,16 @@ def get_input(messages=None):
             if mention is None:
                 m_cands = []
                 m_total = 0
-            else:
-                if mention[1] != m_last_query:
-                    m_selected = 0
-                    m_last_query = mention[1]
+                m_last_query = None
+            elif mention[1] != m_last_query:
+                m_selected = 0
+                m_last_query = mention[1]
                 m_cands, m_total = _mention_candidates(mention[1])
 
             bar = "\x1b[2m" + ("─" * _hw()) + "\x1b[0m"
             rst = "\x1b[0m"
-            try:
-                from . import config
-
-                mid = config.get_current_model().split("/")[-1].lower()
-            except OSError:
-                mid = ""
-            try:
-                from hazzel import agent as _agent
-                from .tokens import format_count as _fmt
-
-                _used, _window = _agent.context_usage(messages)
-                tok = format_context_meter(_used, _window)
-            except Exception:
-                try:
-                    _u = _agent.get_session_usage()
-                    _total = (_u.get("input") or 0) + (_u.get("output") or 0)
-                    tok = f"{_fmt(_total)} tokens" if _u.get("calls") else "0 tokens"
-                except Exception:
-                    tok = ""
+            mid = _static_mid
+            tok = _static_tok
             lines = []
             lines.append(bar)
             hbuf = _highlight_mentions(buffer)
@@ -391,18 +405,8 @@ def get_input(messages=None):
                         lines.append(f"    \x1b[2m{name}  {desc}\x1b[0m")
                 lines.append(f"  \x1b[2m({selected + 1}/{total})\x1b[0m")
             lines.append(bar)
-            try:
-                from . import config as _cfg
-
-                _plan_bit = " · plan" if _cfg.is_plan_enabled() else " · build"
-                _goal = _cfg.get_goal() or {}
-                _gtext = (_goal.get("objective") or "").strip()
-                if len(_gtext) > 28:
-                    _gtext = _gtext[:28] + "…"
-                _goal_bit = f" · ⚑ {_gtext}" if _gtext else ""
-            except Exception:
-                _plan_bit = ""
-                _goal_bit = ""
+            _plan_bit = _static_plan_bit
+            _goal_bit = _static_goal_bit
             if tok:
                 lines.append(f"  \x1b[2m{mid} · {tok}{_plan_bit}{_goal_bit} · @ tag · ! bash · /exit{rst}")
             else:
@@ -738,7 +742,6 @@ def end_stream():
     return buf
 
 
-_loader = None
 _tool_rows: list[Text] = []
 _turn_started = None
 
@@ -977,8 +980,9 @@ def show_tool(tool_name, detail="", success=True, exit_code=None, cached=False, 
     if exit_code is not None and not success:
         text.append(f"  · exit {exit_code}", style=DIM_COLOR)
     if _loader is not None:
-        _tool_rows.clear()
         _tool_rows.append(text)
+        while len(_tool_rows) > _MAX_TOOL_ROWS:
+            _tool_rows.pop(0)
         _loader.update(_live_body(None))
     else:
         console.print(text)
@@ -1306,7 +1310,6 @@ def show_pr_list(body):
     table.add_column(overflow="fold", width=20)
     for line in body.splitlines()[:20]:
         parts = line.split("\t")
-        row = Text()
         num = parts[0].strip() if parts else ""
         title = parts[1].strip() if len(parts) > 1 else line.strip()
         branch = parts[2].strip() if len(parts) > 2 else ""

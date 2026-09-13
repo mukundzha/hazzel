@@ -3,7 +3,13 @@
 All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.3.7] - 2026-09-13
+### Added
+- Persistent undo: `safety` spills checkpoints to `~/.config/hazzel/undo/` (0600 blobs + index) and restores after restart; `clear_undo_log()` for tests/logout.
+- Destructive shell guard: `run_command` checkpoints `rm/rmdir` targets plus `mv/cp` destinations (globs resolved), not just `rm`.
+- UI perf: `get_input` hoists model/context/plan footer out of the per-frame loop, `@` candidates recompute only on query change, mention walk TTL 10s→30s with `site/dist/build` prune; `show_tool` keeps append-only rows (cap 8) instead of last-only.
+### Tests
+- New `tests/test_safety.py` (14 tests): checkpoint/undo, caps, diff truncation, persist round-trip, `is_safe_command`, timeout/cwd guards, destructive targets, approval cancel, plan-mode blocks, raw-git blocks.
 
 ## [1.3.6] - 2026-09-12
 ### Added
