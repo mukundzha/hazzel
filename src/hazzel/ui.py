@@ -90,6 +90,7 @@ SLASH_COMMANDS = [
     {"name": "/export", "desc": "save transcript to markdown"},
     {"name": "/copy", "desc": "copy last reply [code]"},
     {"name": "/init", "desc": "generate AGENTS.md map"},
+    {"name": "/skills", "desc": "pick + attach a skill"},
     {"name": "/retry", "desc": "re-run last message"},
     {"name": "/usage", "desc": "show token usage"},
     {"name": "/undo", "desc": "undo last file change"},
@@ -215,12 +216,43 @@ def _fuzzy_score(query, target):
     return score
 
 
+def _skill_candidates(query, limit=4):
+    try:
+        from hazzel import skills as _skills
+        names = [s["name"] for s in _skills.discover_skills()]
+    except Exception:
+        return []
+    q = (query or "").lower()
+    if not q:
+        return sorted(names, key=str.lower)[:limit]
+    scored = []
+    for name in names:
+        low = name.lower()
+        if low == q:
+            scored.append((0, 0.0, name))
+        elif low.startswith(q):
+            scored.append((1, 0.0, name))
+        elif q in low:
+            scored.append((2, 0.0, name))
+        else:
+            score = _fuzzy_score(q, low)
+            if score is not None:
+                scored.append((3, score, name))
+    scored.sort(key=lambda item: (item[0], item[1], item[2].lower()))
+    return [name for _, _, name in scored[:limit]]
+
+
 def _mention_candidates(query, limit=_MENTION_ROWS):
+    try:
+        skill_hits = _skill_candidates(query)
+    except Exception:
+        skill_hits = []
     files = _all_project_files()
     q = (query or "").lower().lstrip("./")
     if not q:
         ranked = sorted(files, key=lambda p: (p.count("/"), len(p), p.lower()))
-        return ranked[:limit], len(files)
+        combined = skill_hits + [p for p in ranked if p not in skill_hits]
+        return combined[:limit], len(skill_hits) + len(files)
     scored = []
     has_slash = "/" in q
     for path in files:
@@ -252,7 +284,8 @@ def _mention_candidates(query, limit=_MENTION_ROWS):
                     scored.append((4, score, len(path), low, path))
     scored.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
     ranked = [item[4] for item in scored[:50]]
-    return ranked[:limit], len(ranked)
+    combined = skill_hits + [p for p in ranked if p not in skill_hits]
+    return combined[:limit], len(skill_hits) + len(ranked)
 
 
 def _accept_mention(buffer, full_path):
@@ -336,10 +369,15 @@ def _filter_slash_commands(query):
     return [c for _, _, c in scored[:8]]
 
 
-def get_input(messages=None):
-    from . import wincompat
+def _win_redraw(buffer):
+    sys.stdout.write("\r\x1b[K❯ " + (buffer or ""))
+    sys.stdout.flush()
 
-    if not sys.stdin.isatty() or wincompat.is_windows():
+
+def _win_input(prefill=""):
+    try:
+        import msvcrt
+    except ImportError:
         try:
             line = input()
         except (EOFError, KeyboardInterrupt):
@@ -349,6 +387,69 @@ def get_input(messages=None):
         rule()
         console.print()
         return line
+    buffer = (prefill or "")[:MAX_BUFFER_CHARS]
+    _win_redraw(buffer)
+    while True:
+        try:
+            ch = msvcrt.getwch()
+        except (OSError, ValueError, KeyboardInterrupt):
+            raise KeyboardInterrupt
+        if ch in ("\r", "\n"):
+            break
+        if ch == "\x03":
+            sys.stdout.write("\r\n")
+            sys.stdout.flush()
+            raise KeyboardInterrupt
+        if ch == "\x1a":
+            sys.stdout.write("\r\n")
+            sys.stdout.flush()
+            raise EOFError
+        if ch in ("\x00", "\xe0"):
+            try:
+                msvcrt.getwch()
+            except (OSError, ValueError, KeyboardInterrupt):
+                pass
+            continue
+        if ch == "\x1b":
+            buffer = ""
+            _win_redraw(buffer)
+            continue
+        if ch == "\x15":
+            buffer = ""
+            _win_redraw(buffer)
+            continue
+        if ch in ("\x08", "\x7f"):
+            if buffer:
+                buffer = buffer[:-1]
+                _win_redraw(buffer)
+            continue
+        if ch and (ch.isprintable() or ch in (" ", "\t")) and len(buffer) < MAX_BUFFER_CHARS:
+            buffer += ch
+            _win_redraw(buffer)
+    sys.stdout.write("\r\n")
+    sys.stdout.flush()
+    rule()
+    console.print(f"❯ {buffer}")
+    rule()
+    console.print()
+    return buffer
+
+
+def get_input(messages=None, prefill=""):
+    from . import wincompat
+
+    if not sys.stdin.isatty():
+        try:
+            line = input()
+        except (EOFError, KeyboardInterrupt):
+            raise
+        rule()
+        console.print(f"❯ {line}")
+        rule()
+        console.print()
+        return line
+    if wincompat.is_windows():
+        return _win_input(prefill or "")
     import termios
     import tty
     import select
@@ -363,7 +464,7 @@ def get_input(messages=None):
         except (EOFError, KeyboardInterrupt):
             raise
 
-    buffer = ""
+    buffer = prefill or ""
     selected = 0
     rendered_nlines = 0
     rendered_lines = 0
@@ -1617,6 +1718,7 @@ _HELP_SECTIONS = [
         ("/export", "save transcript [file.md]"),
         ("/copy", "copy last reply [code]"),
         ("/init", "generate AGENTS.md map"),
+        ("/skills", "pick + attach a skill"),
         ("/retry", "re-run last message"),
         ("/usage", "show token usage"),
         ("/undo", "undo last file change"),
@@ -1967,6 +2069,41 @@ def show_export(path):
     console.print()
 
 
+def show_skills(skills):
+    rule()
+    title = Text()
+    title.append("  Skills", style="bold white")
+    title.append(f"  ·  {len(skills or [])} installed", style=DIM_COLOR)
+    console.print(title)
+    if not skills:
+        console.print(Text("  No skills installed.", style=DIM_COLOR))
+        console.print(Text("  Add one at .hazzel/skills/<name>/SKILL.md (frontmatter: name, description).", style=DIM_COLOR))
+    else:
+        for s in skills:
+            row = Text()
+            row.append("  ❯ ", style=f"bold {HAZZEL_COLOR}")
+            row.append(s.get("name", ""), style="bold white")
+            row.append(f"  ·  {s.get('source', '')}", style=DIM_COLOR)
+            console.print(row)
+            desc = (s.get("description") or "no description").strip()
+            if desc:
+                console.print(Text(f"     {desc[:140]}", style=DIM_COLOR))
+        console.print(Text("  /skills to pick · /skills <name> to preview", style=DIM_COLOR))
+    rule()
+
+
+def show_skill_detail(name, body):
+    rule()
+    title = Text()
+    title.append(f"  Skill: {name}", style="bold white")
+    console.print(title)
+    for line in (body or "").splitlines()[:60]:
+        console.print(Text(f"  {line[:160]}", style="white" if line.strip() else DIM_COLOR))
+    if len((body or "").splitlines()) > 60:
+        console.print(Text(f"  …{len(body.splitlines()) - 60} more lines", style=DIM_COLOR))
+    rule()
+
+
 def show_logout():
     text = Text()
     text.append("  ○ ", style=f"bold {DIM_COLOR}")
@@ -2150,6 +2287,150 @@ def select_model(catalog, current_id=None):
         for m in catalog:
             if m["display_name"].lower() == raw.lower() or m["id"] == raw:
                 return m
+    return None
+
+
+def select_skill(skills):
+    skills = list(skills or [])
+    if not skills:
+        console.print()
+        console.print(Text("  No skills installed.", style=DIM_COLOR))
+        console.print(Text("  Add one at .hazzel/skills/<name>/SKILL.md (frontmatter: name, description).", style=DIM_COLOR))
+        console.print()
+        return None
+    if sys.stdin.isatty():
+        try:
+            import termios
+            import tty
+            import select
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            selected = 0
+            rendered = 0
+            try:
+                tty.setraw(fd)
+                termios.tcflush(fd, termios.TCIFLUSH)
+                sys.stdout.write("\x1b[?25l")
+                sys.stdout.flush()
+                while True:
+                    lines = []
+                    lines.append("")
+                    lines.append("  \x1b[2mSelect skill\x1b[0m")
+                    lines.append("")
+                    visible = 8
+                    total = len(skills)
+                    start = max(0, min(selected - visible // 2, total - visible))
+                    end = min(total, start + visible)
+                    if end - start < visible:
+                        start = max(0, end - visible)
+                    for idx in range(start, end):
+                        name = skills[idx].get("name", "")
+                        if idx == selected:
+                            lines.append(f"  \x1b[1m\x1b[97m❯ {name}\x1b[0m")
+                        else:
+                            lines.append(f"    \x1b[2m{name}\x1b[0m")
+                    lines.append("")
+                    lines.append(f"  \x1b[2m({selected + 1}/{total})\x1b[0m")
+                    lines.append("")
+                    lines.append("  \x1b[2m↑↓ navigate · Enter select · Esc cancel\x1b[0m")
+                    lines.append("")
+                    out = "\r\n".join(lines)
+                    redraw = "\r\n".join("\x1b[2K\r" + line for line in lines)
+                    nlines = out.count("\r\n")
+                    if rendered == 0:
+                        sys.stdout.write(out)
+                    else:
+                        sys.stdout.write(f"\x1b[{rendered}A")
+                        sys.stdout.write(redraw)
+                    sys.stdout.flush()
+                    rendered = nlines
+                    ch = _read_key(fd)
+                    if ch == "\x03":
+                        sys.stdout.write(f"\x1b[{rendered}A")
+                        sys.stdout.write("\x1b[J")
+                        return None
+                    if ch == "\x1b":
+                        if select.select([fd], [], [], 0.04)[0]:
+                            ch2 = _read_key(fd)
+                            if ch2 in ("[", "O"):
+                                if select.select([fd], [], [], 0.02)[0]:
+                                    ch3 = _read_key(fd)
+                                    if ch3 == "A":
+                                        selected = (selected - 1) % len(skills)
+                                        continue
+                                    if ch3 == "B":
+                                        selected = (selected + 1) % len(skills)
+                                        continue
+                            elif ch2 == "\x1b":
+                                sys.stdout.write(f"\x1b[{rendered}A")
+                                sys.stdout.write("\x1b[J")
+                                return None
+                        else:
+                            sys.stdout.write(f"\x1b[{rendered}A")
+                            sys.stdout.write("\x1b[J")
+                            return None
+                    elif ch in ("\r", "\n"):
+                        sys.stdout.write(f"\x1b[{rendered}A")
+                        sys.stdout.write("\x1b[J")
+                        return skills[selected]
+                    elif ch in ("k", "K"):
+                        selected = (selected - 1) % len(skills)
+                        continue
+                    elif ch in ("j", "J"):
+                        selected = (selected + 1) % len(skills)
+                        continue
+                    elif ch.isdigit() and ch != "0":
+                        n = int(ch) - 1
+                        if 0 <= n < len(skills):
+                            selected = n
+                            continue
+            except (KeyboardInterrupt, EOFError):
+                try:
+                    sys.stdout.write(f"\x1b[{rendered}A")
+                    sys.stdout.write("\x1b[J")
+                except OSError:
+                    sys.stdout.write("\r\n")
+                return None
+            finally:
+                try:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                except OSError:
+                    pass
+                sys.stdout.write("\x1b[?25h\x1b[?12h")
+                sys.stdout.flush()
+        except (OSError, ImportError):
+            pass
+    console.print()
+    console.print(Text("  Select skill", style="dim"))
+    console.print()
+    for i, s in enumerate(skills):
+        text = Text()
+        text.append("  ")
+        if i == 0:
+            text.append("❯ ", style=f"bold {HAZZEL_COLOR}")
+        else:
+            text.append("  ", style=DIM_COLOR)
+        text.append(f"{i + 1}. ", style="dim")
+        text.append(s.get("name", ""), style="bold bright_white")
+        console.print(text)
+    console.print()
+    console.print(Text("  Enter number · empty cancel", style="dim"))
+    console.print()
+    try:
+        raw = input("  > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        console.print()
+        return None
+    if not raw:
+        return None
+    try:
+        n = int(raw) - 1
+        if 0 <= n < len(skills):
+            return skills[n]
+    except ValueError:
+        for s in skills:
+            if s.get("name", "").lower() == raw.lower():
+                return s
     return None
 
 

@@ -41,21 +41,52 @@ def _read_capped(resolved):
     return (body + more) or "(empty file)", None
 
 
+def _match_skill(target):
+    try:
+        from hazzel import skills as _skills
+        return _skills.find_skill(target)
+    except Exception:
+        return None
+
+
 def expand_mentions(text):
     targets = parse_mentions(text)
     if not targets:
-        return "", [], {}, []
+        return "", [], {}, [], []
     blocks = []
     contents = {}
     ok = []
     errors = []
+    attached_skills = []
     for target in targets:
         try:
             resolved = resolve_project_path(target)
         except ValueError as error:
-            errors.append(f"@{target}: {error}")
-            continue
-        if not resolved.exists():
+            resolved = None
+            resolve_error = str(error)
+        else:
+            resolve_error = ""
+        if resolved is not None and resolved.exists():
+            pass
+        else:
+            skill = _match_skill(target)
+            if skill is not None:
+                try:
+                    from hazzel import skills as _skills
+                    body = _skills.get_skill_body(skill["name"])
+                except Exception:
+                    body = None
+                if body:
+                    blocks.append(f'<skill name="{skill["name"]}">\n{body}\n</skill>')
+                    contents[target] = body
+                    ok.append(target)
+                    attached_skills.append(skill["name"])
+                else:
+                    errors.append(f"@{target}: skill found but unreadable, use /skills to retry")
+                continue
+            if resolved is None:
+                errors.append(f"@{target}: {resolve_error}")
+                continue
             errors.append(f"@{target}: {missing_file_message(target)}")
             continue
         if resolved.is_dir():
@@ -89,7 +120,7 @@ def expand_mentions(text):
         context = "<attached_files>\n" + "\n".join(blocks) + "\n</attached_files>"
     if errors:
         context += ("\n" if context else "") + "<mention_errors>\n" + "\n".join(errors) + "\n</mention_errors>"
-    return context, ok, contents, errors
+    return context, ok, contents, errors, attached_skills
 
 
 def strip_mentions(text):

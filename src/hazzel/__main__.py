@@ -15,6 +15,7 @@ _last_summary = None
 _last_trace = []
 _last_response = None
 _last_user_input = None
+_pending_prefill = ""
 
 def _show_goal(goal):
     console.print(f"  Goal: {goal['objective']}", style="bold white")
@@ -69,7 +70,7 @@ VERSION = _version()
 
 
 def main(argv=None):
-    global _last_summary, _last_trace, _last_response, _last_user_input
+    global _last_summary, _last_trace, _last_response, _last_user_input, _pending_prefill
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] in ("--version", "-V"):
         console.print(f"Hazzel {VERSION}")
@@ -90,7 +91,8 @@ def main(argv=None):
         console.print()
     while True:
         try:
-            user_input = ui.get_input(messages)
+            prefill, _pending_prefill = _pending_prefill, ""
+            user_input = ui.get_input(messages, prefill=prefill)
         except KeyboardInterrupt:
             continue
         except EOFError:
@@ -444,6 +446,19 @@ def main(argv=None):
             result = agent.run_tool("write_file", {"path": arg, "content": content})
             _last_response = result
             ui.show_hazzel_message(result)
+            continue
+        if low_in == "skills" or low_in == "/skills" or low_in.startswith("/skills ") or low_in.startswith("skills "):
+            raw = user_input.strip()
+            arg = (raw[7:].strip() if raw.startswith("/") else raw[6:].strip()).strip("\"'")
+            from hazzel import skills as _skills
+            if not arg or arg.lower() in ("list", "ls"):
+                picked = ui.select_skill(_skills.discover_skills())
+                if picked is not None:
+                    _pending_prefill = "@" + picked.get("name", "") + " "
+            else:
+                name = arg.split()[0]
+                _last_response = agent.run_tool("skill", {"name": name})
+                ui.show_skill_detail(name, _last_response)
             continue
         if low_in == "copy" or low_in.startswith("/copy"):
             raw = user_input.strip()

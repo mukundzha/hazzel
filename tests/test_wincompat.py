@@ -70,6 +70,45 @@ def test_input_windows_simple(monkeypatch, capsys):
     assert "hello" in capsys.readouterr().out
 
 
+class _FakeMsvcrt:
+    def __init__(self, keys):
+        self._keys = list(keys)
+
+    def getwch(self):
+        if not self._keys:
+            raise OSError("no more keys")
+        return self._keys.pop(0)
+
+
+def _msvcrt_keys(monkeypatch, keys):
+    _windows(monkeypatch)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setitem(sys.modules, "msvcrt", _FakeMsvcrt(keys))
+
+
+def test_win_input_prefill_and_type(monkeypatch, capsys):
+    _msvcrt_keys(monkeypatch, ["f", "i", "x", "\r"])
+    assert ui.get_input(prefill="@helper ") == "@helper fix"
+    assert "@helper fix" in capsys.readouterr().out
+
+
+def test_win_input_backspace_and_esc(monkeypatch):
+    _msvcrt_keys(monkeypatch, ["\x08", "\r"])
+    assert ui.get_input(prefill="@helper ") == "@helper"
+    _msvcrt_keys(monkeypatch, ["\x1b", "o", "k", "\r"])
+    assert ui.get_input(prefill="@helper ") == "ok"
+
+
+def test_win_input_ctrl_c_and_extended(monkeypatch):
+    import pytest
+
+    _msvcrt_keys(monkeypatch, ["\x03"])
+    with pytest.raises(KeyboardInterrupt):
+        ui.get_input(prefill="@helper ")
+    _msvcrt_keys(monkeypatch, ["\xe0", "H", "o", "k", "\r"])
+    assert ui.get_input() == "ok"
+
+
 def test_safe_commands_windows(monkeypatch):
     _windows(monkeypatch)
     assert is_safe_command("dir") is True

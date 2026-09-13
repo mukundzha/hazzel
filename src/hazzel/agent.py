@@ -10,6 +10,7 @@ import time
 
 from hazzel import ui
 from hazzel import config
+from hazzel import skills as _skills
 from hazzel.config import resolve_project_path
 from hazzel.mentions import expand_mentions, strip_mentions
 from hazzel.providers import get_provider
@@ -40,9 +41,10 @@ Prohibited unless explicitly requested: editing files the user didn't mention, i
 Direct orders (install/read/create/run) execute immediately in one step — no exploration first. Vague tasks may explore, then act.
 Verify before claiming success.
 In your responses add proper spacing and formatting
-Tools: you have EXACTLY these 15 functions and no others: list_files, read_file, search_files, write_file, edit_file, apply_edits, run_command, git_status, git_diff, git_commit, git_branch, github_pr, web_search, fetch_url, review_diff. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file. For multi-file changes prefer one apply_edits call.
+Tools: you have EXACTLY these 16 functions and no others: list_files, read_file, search_files, write_file, edit_file, apply_edits, run_command, git_status, git_diff, git_commit, git_branch, github_pr, web_search, fetch_url, review_diff, skill. Never call or invent any other tool (no namespaces, no dots, no repobrowser, no print_tree). To list a tree use list_files; to view content use read_file. For multi-file changes prefer one apply_edits call.
 Web: web_search then fetch_url is read-only — search first for docs, changelogs, and references, then fetch the best hits (one fetch_url call accepts up to 5 urls); never fetch secrets or keys. Always pass the user's question as query so only relevant sentences come back.
 Review: review_diff is read-only — call it when the user asks for a review; path takes a file (@file works), codebase=true reviews staged+unstaged together; it returns severity-ranked findings, never edits.
+Skills: a per-turn catalog of available skills is appended to this prompt when skills exist — when the task matches one, call skill(name) to load its instructions and follow them; call skill with no name to re-list.
 Goal: if a session goal is appended to the user message, steer every step toward it and briefly note progress. When the acceptance looks met, propose clearing the goal.
 Git: git_status/git_diff are read-only — call first before editing or committing. Commit only when asked, via git_commit (asks approval, shows diff). Never run raw `git commit/push/reset/clean` via run_command; use the git tools. Never run raw `gh pr create/merge/comment` via run_command; use github_pr.
 You are Hazzel, never ChatGPT/Claude/Gemini/DeepSeek/Grok/etc."""
@@ -190,11 +192,19 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {"staged": {"type": "boolean"}, "path": {"type": "string"}, "codebase": {"type": "boolean"}}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "skill",
+            "description": "Load a skill's instructions (SKILL.md) into context and follow them. Read-only. Omit name to list available skills.",
+            "parameters": {"type": "object", "properties": {"name": {"type": "string"}}},
+        },
+    },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "git_status", "git_diff", "git_commit", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff", "skill"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url", "review_diff", "skill"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -234,7 +244,7 @@ def _plan_blocked(tool_name, arguments):
     return False
 
 
-PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"})
+PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff", "skill"})
 PARALLEL_MAX_WORKERS = 8
 PARALLEL_TOOL_TIMEOUT = 60.0
 
@@ -274,11 +284,13 @@ def _tool_detail(tool_name, arguments):
         sub = str(arguments.get("number", "") or "").strip() or str(arguments.get("title", "") or "").strip()
         if sub:
             detail = f"{arguments.get('action', 'list')} {sub}".strip()
+    if tool_name == "skill" and isinstance(arguments, dict):
+        detail = str(arguments.get("name", "") or "").strip()
     return detail
 
 
 def _tool_cache_key(tool_name, arguments, detail):
-    if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff"):
+    if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "review_diff", "skill"):
         return (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
     return None
 
@@ -375,6 +387,9 @@ _TOOL_ALIASES = {
     "code_review": "review_diff",
     "codereview": "review_diff",
     "critique": "review_diff",
+    "skills": "skill",
+    "load_skill": "skill",
+    "loadskill": "skill",
 }
 
 
@@ -430,6 +445,13 @@ def _coerce_tool_args(tool_name, arguments):
                 if args.get(k) is not None:
                     args["query"] = args[k]
                     break
+    elif tool_name == "skill":
+        if "name" not in args:
+            for k in ("skill", "skill_name", "target"):
+                if args.get(k) is not None:
+                    args["name"] = args[k]
+                    break
+        args.setdefault("name", "")
     elif tool_name == "review_diff":
         if "path" not in args:
             for k in ("file", "filename", "filepath", "target"):
@@ -657,6 +679,8 @@ def run_tool(tool_name, arguments):
             return fetch_url(arguments.get("url", ""), arguments.get("max_chars", 2000), arguments.get("query", ""), urls=arguments.get("urls"))
         if tool_name == "review_diff":
             return review_diff(arguments.get("staged", False), arguments.get("path", ".") or ".", arguments.get("codebase", False))
+        if tool_name == "skill":
+            return _skills.skill_tool(arguments.get("name", "") or "")
         if tool_name == "github_pr":
             return github_pr(
                 arguments.get("action", "list") or "list",
@@ -696,7 +720,7 @@ def _build_summary_inner(trace, response_content, user_input):
         result = t["result"]
         if name == "read_file" and success and not t.get("cached"):
             inspected.append(detail)
-        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url") and success and not t.get("cached"):
+        elif name in ("list_files", "search_files", "git_status", "git_diff", "git_branch", "github_pr", "web_search", "fetch_url", "skill") and success and not t.get("cached"):
             inspected.append(detail or name)
         elif name == "write_file" and success:
             created.append(detail)
@@ -1435,6 +1459,12 @@ def run(messages, user_input):
     task_messages = messages + [{"role": "user", "content": user_input}]
     if _plan_defers() and task_messages and task_messages[0].get("role") == "system":
         task_messages[0] = {"role": "system", "content": (task_messages[0].get("content") or "") + PLAN_ADDENDUM}
+    try:
+        skills_note = _skills.skills_prompt()
+    except Exception:
+        skills_note = ""
+    if skills_note and task_messages and task_messages[0].get("role") == "system":
+        task_messages[0] = {"role": "system", "content": (task_messages[0].get("content") or "") + skills_note}
 
     trace = []
     seen_reads = set()
@@ -1448,11 +1478,13 @@ def run(messages, user_input):
         ui.end_turn()
         return fast
 
-    mention_context, attached, _, mention_errors = expand_mentions(user_input)
+    mention_context, attached, _, mention_errors, attached_skills = expand_mentions(user_input)
     if mention_context:
         task_messages[-1]["content"] = user_input + "\n\n" + mention_context
         if attached:
             task_messages[-1]["content"] += "\n\nAnswer the user's instruction using the attached files; do not reprint them unless asked."
+        if attached_skills:
+            task_messages[-1]["content"] += "\n\nFollow the loaded skill instructions for this task."
         for path in attached:
             seen_reads.add(("read_file", str(path), "1", "60", ""))
             seen_reads.add(("read_file", str(path), "", "", ""))
@@ -1462,11 +1494,18 @@ def run(messages, user_input):
                 ui.show_tool("read_file", path, success=True)
             except Exception:
                 pass
+        for name in attached_skills:
+            seen_reads.add(("skill", str(name), "", "", ""))
+            trace.append({"tool": "skill", "args": {"name": name}, "detail": name, "result": "(attached via @mention)", "success": True, "exit_code": None})
+            try:
+                ui.show_tool("skill", name, success=True)
+            except Exception:
+                pass
         if attached:
             _note_target(attached[0])
-        if not strip_mentions(user_input) and attached and not mention_errors:
+        if not strip_mentions(user_input) and (attached or attached_skills) and not mention_errors:
             ui.end_turn()
-            tagged = ", ".join(f"`@{p}`" for p in attached)
+            tagged = ", ".join(f"`@{p}`" for p in list(attached) + list(attached_skills))
             return _fast_reply(messages, user_input, f"Attached {tagged} — tell me what to do with it (explain, review, edit …).", trace)
 
     goal_note = _session_goal_note()
