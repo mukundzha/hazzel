@@ -3,6 +3,13 @@
 All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.8] - 2026-09-13
+### Added
+- Fuzzy `@` file tags: fzf-style subsequence matching with consecutive/boundary/camelCase bonuses (`agnt`→`agent.py`, `sfty`→`safety.py`); exact tiers unchanged, fuzzy as fallback tier.
+- Fuzzy `/` command palette: prefix → substring → fuzzy fallback over names + descriptions (`/cmt`→`/commit`, `/stus`→`/status`); Tab/Enter completes off the fuzzy list.
+### Tests
+- 7 new tests in `tests/test_ui_pure.py` (fuzzy scoring, mention transpositions, exact-first ordering, slash prefix/substring/fuzzy).
+
 ## [1.3.7] - 2026-09-13
 ### Added
 - Persistent undo: `safety` spills checkpoints to `~/.config/hazzel/undo/` (0600 blobs + index) and restores after restart; `clear_undo_log()` for tests/logout.
