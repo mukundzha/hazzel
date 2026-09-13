@@ -185,6 +185,36 @@ def _all_project_files():
     return files
 
 
+def _fuzzy_score(query, target):
+    q = query.lower()
+    t = target.lower()
+    if not q or len(q) > 64:
+        return None
+    pos = []
+    ti = 0
+    for ch in q:
+        nxt = t.find(ch, ti)
+        if nxt == -1:
+            return None
+        pos.append(nxt)
+        ti = nxt + 1
+    score = float(pos[0]) * 2.0 + len(t) * 0.1
+    consec = 0
+    for idx, p in enumerate(pos):
+        if idx > 0 and p == pos[idx - 1] + 1:
+            consec += 1
+            score -= 15.0
+        else:
+            if idx > 0:
+                score += float(p - pos[idx - 1] - 1)
+        if p == 0 or t[p - 1] in "/_-.:\\ ":
+            score -= 10.0
+        elif target[max(0, p - 1)].islower() and target[p].isupper():
+            score -= 8.0
+    score -= min(consec, 8) * 2.0
+    return score
+
+
 def _mention_candidates(query, limit=_MENTION_ROWS):
     files = _all_project_files()
     q = (query or "").lower().lstrip("./")
@@ -197,19 +227,31 @@ def _mention_candidates(query, limit=_MENTION_ROWS):
         low = path.lower()
         if has_slash:
             if q in low:
-                scored.append((0 if low.startswith(q) else 1, len(path), low, path))
+                scored.append((0 if low.startswith(q) else 1, 0.0, len(path), low, path))
+                continue
+            score = _fuzzy_score(q, low)
+            if score is not None:
+                scored.append((4, score, len(path), low, path))
         else:
             base = os.path.basename(low)
             if base == q:
-                scored.append((0, len(path), low, path))
+                scored.append((0, 0.0, len(path), low, path))
             elif base.startswith(q):
-                scored.append((1, len(path), low, path))
+                scored.append((1, 0.0, len(path), low, path))
             elif q in base:
-                scored.append((2, len(path), low, path))
+                scored.append((2, 0.0, len(path), low, path))
             elif q in low:
-                scored.append((3, len(path), low, path))
-    scored.sort(key=lambda item: (item[0], item[1], item[2]))
-    ranked = [item[3] for item in scored[:50]]
+                scored.append((3, 0.0, len(path), low, path))
+            else:
+                score = _fuzzy_score(q, base)
+                if score is None:
+                    score = _fuzzy_score(q, low)
+                    if score is not None:
+                        score += 20.0
+                if score is not None:
+                    scored.append((4, score, len(path), low, path))
+    scored.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    ranked = [item[4] for item in scored[:50]]
     return ranked[:limit], len(ranked)
 
 
@@ -265,6 +307,33 @@ def _highlight_mentions(buffer):
     if bang:
         return "\x1b[1m\x1b[97m!\x1b[0m" + out
     return out
+
+
+def _filter_slash_commands(query):
+    q = (query or "").lower()
+    if not q.startswith("/"):
+        return []
+    prefixed = [c for c in SLASH_COMMANDS if c["name"].startswith(q)]
+    if prefixed:
+        return prefixed
+    sub = [c for c in SLASH_COMMANDS if q in c["name"]]
+    if sub:
+        return sub
+    sq = q.lstrip("/").lstrip()
+    if not sq:
+        return list(SLASH_COMMANDS)
+    scored = []
+    for c in SLASH_COMMANDS:
+        name = c["name"].lstrip("/")
+        score = _fuzzy_score(sq, name)
+        if score is None:
+            desc_score = _fuzzy_score(sq, c.get("desc", ""))
+            if desc_score is None:
+                continue
+            score = desc_score + 30.0
+        scored.append((score, c["name"], c))
+    scored.sort(key=lambda item: (item[0], item[1]))
+    return [c for _, _, c in scored[:8]]
 
 
 def get_input(messages=None):
@@ -340,10 +409,7 @@ def get_input(messages=None):
         while True:
             filtered = []
             if buffer.startswith("/"):
-                q = buffer.lower()
-                filtered = [c for c in SLASH_COMMANDS if c["name"].startswith(q)]
-                if not filtered:
-                    filtered = [c for c in SLASH_COMMANDS if q in c["name"]]
+                filtered = _filter_slash_commands(buffer)
                 if selected >= len(filtered):
                     selected = 0
             else:

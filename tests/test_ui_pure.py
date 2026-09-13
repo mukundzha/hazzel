@@ -58,3 +58,43 @@ def test_clip_paste_normalizes_and_caps():
 def test_visual_rows_counts_newlines():
     assert ui._visual_rows(["a\nb\nc"]) == 2
     assert ui._visual_rows(["a"]) == 0
+
+
+def test_fuzzy_score_exact_beats_gappy():
+    assert ui._fuzzy_score("abc", "abc") < ui._fuzzy_score("abc", "a_b_c")
+    assert ui._fuzzy_score("xyz", "abc") is None
+    assert ui._fuzzy_score("", "abc") is None
+
+
+def test_fuzzy_score_boundary_bonus():
+    assert ui._fuzzy_score("rc", "run_command.py") < ui._fuzzy_score("rc", "src/hazzel/formatter.py")
+
+
+def test_mention_fuzzy_transpositions():
+    cands, _ = ui._mention_candidates("agnt")
+    assert any("agent.py" in c for c in cands)
+    cands, _ = ui._mention_candidates("sfty")
+    assert any("safety.py" in c for c in cands)
+    cands, _ = ui._mention_candidates("runcmd")
+    assert any("run_command.py" in c for c in cands)
+
+
+def test_mention_exact_still_first():
+    cands, _ = ui._mention_candidates("agent")
+    assert any("agent.py" in c for c in cands[:2])
+
+
+def test_slash_prefix_and_substring():
+    names = [c["name"] for c in ui._filter_slash_commands("/sta")]
+    assert "/status" in names
+    names = [c["name"] for c in ui._filter_slash_commands("/ommit")]
+    assert "/commit" in names
+
+
+def test_slash_fuzzy_transpositions():
+    names = [c["name"] for c in ui._filter_slash_commands("/cmt")]
+    assert "/commit" in names
+    names = [c["name"] for c in ui._filter_slash_commands("/stus")]
+    assert "/status" in names
+    assert ui._filter_slash_commands("status") == []
+    assert ui._filter_slash_commands("/zzzzzz") == []
