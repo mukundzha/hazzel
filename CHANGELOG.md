@@ -3,6 +3,10 @@
 All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.9] - 2026-09-13
+### Removed
+- Turn recap card (`show_turn_card` / `show_turn_from_trace`): turns no longer print the boxed `model ── path` Panel repeating the prompt, tool rows, and summary. Tool progress still streams live via `show_tool`; the final reply prints once via `show_hazzel_message`.
+
 ## [1.3.8] - 2026-09-13
 ### Added
 - Fuzzy `@` file tags: fzf-style subsequence matching with consecutive/boundary/camelCase bonuses (`agnt`→`agent.py`, `sfty`→`safety.py`); exact tiers unchanged, fuzzy as fallback tier.

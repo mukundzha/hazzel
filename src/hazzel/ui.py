@@ -853,58 +853,11 @@ def is_quiet():
 
 
 def show_turn_from_trace(user_command, trace, summary):
-    rows = []
-    for t in trace or []:
-        if t.get("cached"):
-            continue
-        detail = str(t.get("detail") or "")
-        if len(detail) > 42:
-            detail = detail[:41].rstrip() + "…"
-        rows.append((t.get("tool", ""), detail, bool(t.get("success"))))
-    rows = rows[:8]
-    lines = []
-    for line in str(summary or "").splitlines():
-        line = line.strip()
-        if line:
-            lines.append(line)
-        if len(lines) >= 4:
-            break
-    if not lines:
-        lines = ["Done."]
-    try:
-        from . import config as _config
-        model = _config.get_current_display_name()
-        root = _short_path(_config.PROJECT_ROOT)
-    except Exception:
-        model = "Hazzel 1.3.2"
-        root = "~/hazzel"
-    show_turn_card(user_command, rows, lines, model=model, root=root)
+    return None
 
 
 def show_turn_card(user_command, tool_rows, summary_lines, model="Hazzel 1.3.2", root="~/hazzel"):
-    body = Text()
-    body.append(f"{model}\n", style=f"bold {HAZZEL_COLOR}")
-    body.append(f"{root}\n\n", style=DIM_COLOR)
-    body.append("❯ ", style="dim")
-    body.append(f"{user_command}\n\n", style="white")
-    for name, detail, success in tool_rows or []:
-        icon = "●" if success else "✗"
-        color = SUCCESS_COLOR if success else ERROR_COLOR
-        body.append(f"  {icon} ", style=f"bold {color}")
-        body.append(f"{str(name).ljust(12)}", style="bold")
-        if detail:
-            body.append(f" {detail}\n", style=DIM_COLOR)
-        else:
-            body.append("\n")
-    if tool_rows:
-        body.append("\n")
-    body.append("─" * 38 + "\n", style="dim")
-    for line in summary_lines or []:
-        body.append(f"{line}\n", style="white")
-    body.append("\n")
-    body.append("❯ ", style="dim")
-    body.append("█", style="white")
-    console.print(Panel(body, title=f"{model} ── {root}", border_style="dim", padding=(1, 2)))
+    return None
 
 
 def show_hazzel_message(message):

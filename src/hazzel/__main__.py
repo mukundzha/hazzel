@@ -16,13 +16,6 @@ _last_trace = []
 _last_response = None
 _last_user_input = None
 
-_CARD_TOOLS = frozenset({"write_file", "edit_file", "apply_edits", "run_command", "git_commit", "git_branch", "github_pr"})
-
-
-def _should_show_card(trace):
-    return any((t.get("tool") in _CARD_TOOLS) for t in trace or [])
-
-
 def _show_goal(goal):
     console.print(f"  Goal: {goal['objective']}", style="bold white")
     if (goal.get("criteria") or "").strip():
@@ -344,7 +337,6 @@ def main(argv=None):
                     _last_trace = []
                     _last_summary = None
                 _last_response = response
-                ui.show_turn_from_trace(task, _last_trace, _last_summary)
                 ui.show_hazzel_message(response)
                 ui.show_reasoning(agent.get_last_reasoning())
                 continue
@@ -441,8 +433,6 @@ def main(argv=None):
                 _last_trace = []
                 _last_summary = None
             _last_response = response
-            if _should_show_card(_last_trace):
-                ui.show_turn_from_trace(_last_user_input, _last_trace, _last_summary)
             ui.show_hazzel_message(response)
             ui.show_reasoning(agent.get_last_reasoning())
             continue
@@ -521,8 +511,6 @@ def main(argv=None):
             _last_trace = []
             _last_summary = None
         _last_response = response
-        if _should_show_card(_last_trace):
-            ui.show_turn_from_trace(user_input, _last_trace, _last_summary)
         ui.show_hazzel_message(response)
         ui.show_reasoning(agent.get_last_reasoning())
 
