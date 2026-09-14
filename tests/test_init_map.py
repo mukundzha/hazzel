@@ -26,3 +26,20 @@ def test_repo_instructions_are_included_in_system_prompt(tmp_path):
     prompt = agent.build_system_prompt(tmp_path)
     assert "Repo instructions" in prompt
     assert "Prefer `pytest`." in prompt
+
+
+def test_missing_repo_instructions_leave_system_prompt_unchanged(tmp_path):
+    assert agent.build_system_prompt(tmp_path) == agent.SYSTEM_PROMPT
+
+
+def test_empty_repo_instructions_leave_system_prompt_unchanged(tmp_path):
+    (tmp_path / "AGENTS.md").write_text("", encoding="utf-8")
+    assert agent.build_system_prompt(tmp_path) == agent.SYSTEM_PROMPT
+
+
+def test_repo_instructions_are_capped_and_non_utf8_is_replaced(tmp_path):
+    content = b"\xff" + (b"x" * (agent.MAX_AGENTS_CHARS + 100))
+    (tmp_path / "AGENTS.md").write_bytes(content)
+    prompt = agent.build_system_prompt(tmp_path)
+    assert "[AGENTS.md truncated at 4000 characters]" in prompt
+    assert len(prompt.rsplit("Repository instructions from AGENTS.md:\n", 1)[1]) < agent.MAX_AGENTS_CHARS + 100
