@@ -7,9 +7,7 @@ from hazzel import ui
 from hazzel import config
 from hazzel import usage_store
 from hazzel import wincompat
-from rich.console import Console
-
-console = Console()
+console = ui.console
 
 messages = [{"role": "system", "content": agent.build_system_prompt(config.PROJECT_ROOT)}]
 

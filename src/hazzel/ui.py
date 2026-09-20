@@ -7,7 +7,38 @@ from rich.console import Console
 from rich.containers import Renderables
 from rich.text import Text
 
-console = Console()
+
+def is_no_color() -> bool:
+    """Check if NO_COLOR environment variable is set and non-empty (https://no-color.org/)."""
+    val = os.getenv("NO_COLOR")
+    return bool(val)
+
+
+class HazzelConsole(Console):
+    """Rich Console that dynamically honors the NO_COLOR environment variable."""
+
+    @property
+    def no_color(self) -> bool:
+        if is_no_color():
+            return True
+        return getattr(self, "_custom_no_color", False)
+
+    @no_color.setter
+    def no_color(self, value: bool) -> None:
+        self._custom_no_color = bool(value)
+
+    @property
+    def _color_system(self):
+        if self.no_color:
+            return None
+        return getattr(self, "_real_color_system", None)
+
+    @_color_system.setter
+    def _color_system(self, val):
+        self._real_color_system = val
+
+
+console = HazzelConsole()
 
 _loader = None
 
@@ -44,6 +75,8 @@ def rule():
 
 
 def _rule_ansi():
+    if is_no_color():
+        return "─" * _hw()
     return "\x1b[2m" + ("─" * _hw()) + "\x1b[0m"
 
 
@@ -307,6 +340,9 @@ MENTION_RESET = "\x1b[0m"
 
 
 def _highlight_mentions(buffer):
+    if is_no_color():
+        return buffer or ""
+
     from hazzel.mentions import MENTION_RE, TRAILING_PUNCT
 
     bang = (buffer or "").startswith("!")
@@ -1112,6 +1148,8 @@ def format_context_plain(used, window):
 
 
 def format_context_meter(used, window):
+    if is_no_color():
+        return format_context_plain(used, window)
     try:
         used = max(0, int(used or 0))
     except (TypeError, ValueError):
