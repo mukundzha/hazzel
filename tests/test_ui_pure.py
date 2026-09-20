@@ -1,6 +1,20 @@
 from hazzel import ui
 
 
+def test_confirm_accepts_yes_variants(monkeypatch):
+    monkeypatch.setattr(ui, "_print_mode", False)
+    monkeypatch.setattr(ui, "_pause_loader", lambda: False)
+    monkeypatch.setattr(ui, "_resume_loader", lambda _was_active: None)
+
+    for answer in ("y", "Y", "yes", "Yes"):
+        monkeypatch.setattr("builtins.input", lambda _prompt, value=answer: value)
+        assert ui.confirm("Allow?") is True
+
+    for answer in ("n", "no", ""):
+        monkeypatch.setattr("builtins.input", lambda _prompt, value=answer: value)
+        assert ui.confirm("Allow?") is False
+
+
 def test_format_elapsed():
     assert ui._format_elapsed(0.012) == "12ms"
     assert ui._format_elapsed(1.25) == "1.2s"

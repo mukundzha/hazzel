@@ -1308,7 +1308,7 @@ def confirm(prompt):
     finally:
         _resume_loader(was_active)
     clean = _ANSI_RE.sub("", answer or "").strip().lower()
-    return clean == "y"
+    return clean in {"y", "yes"}
 
 
 MAX_DIFF_DISPLAY_LINES = 500

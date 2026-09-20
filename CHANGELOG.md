@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Confirmation prompts now accept both `y` and `yes`, regardless of letter case.
+
 ## [1.5.0] - 2026-09-20
 ### Added
 - `/review [--staged]`: read-only review of the uncommitted diff. The current model receives the changed files and their diffs (capped at 20 files / 12k chars, untracked files synthesized in) and answers with Summary · Risks · Missing · Before commit as rendered markdown; a deterministic offline heuristic scan (`review.py`) is used when no model is reachable. It never writes files, runs commands, or creates undo checkpoints, and it leaves the last reply set so `/copy` works afterwards.
