@@ -140,6 +140,14 @@ _PREVIEW_MAX_LINES = 8
 _PREVIEW_MAX_CHARS = 480
 
 
+def _push_tool_row(row, refresh=True):
+    _st._tool_rows.append(row)
+    while len(_st._tool_rows) > _ui_input._MAX_TOOL_ROWS:
+        _st._tool_rows.pop(0)
+    if refresh and _st._loader is not None:
+        _st._loader.update(_ui_stream._live_body(None))
+
+
 def _format_result_preview(result, max_lines=_PREVIEW_MAX_LINES, max_chars=_PREVIEW_MAX_CHARS):
     if not result:
         return "(no output)"
@@ -199,22 +207,17 @@ def show_tool(tool_name, detail="", success=True, exit_code=None, cached=False,
             preview_rows = _split_preview_rows(preview)
 
     if _st._loader is not None:
-        _st._tool_rows.append(text)
-        while len(_st._tool_rows) > _ui_input._MAX_TOOL_ROWS:
-            _st._tool_rows.pop(0)
-        _st._loader.update(_ui_stream._live_body(None))
+        _push_tool_row(text)
     else:
         _st.console.print(text)
 
     if preview_rows is not None:
         for row in preview_rows:
             if _st._loader is not None:
-                _st._tool_rows.append(row)
+                _push_tool_row(row, refresh=False)
             else:
                 _st.console.print(row)
         if _st._loader is not None:
-            while len(_st._tool_rows) > _ui_input._MAX_TOOL_ROWS:
-                _st._tool_rows.pop(0)
             _st._loader.update(_ui_stream._live_body(None))
 
 
