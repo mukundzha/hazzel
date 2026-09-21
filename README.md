@@ -111,6 +111,8 @@ Aider is excellent — this is about fit, not superiority.
 | Remembers between sessions | Per-project sessions persist with `/session restore`. `/plan on` explores read-only first; `/think on` buys extended reasoning for hard edits. |
 | Works in a pipeline | `hazzel -p "prompt"` runs one turn and exits — pipe a diff in, get a summary out. `--output-format json` + real exit codes for CI. |
 
+See [five copy-paste sessions](docs/EXAMPLES.md) for concrete `/review`, `/commit`, image, background-job, and pipeline examples.
+
 ## Providers — bring your own key, no subscription
 
 Eight providers: OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter (100+ models, one key), Groq (default: `openai/gpt-oss-120b`) — set one env var (`OPENAI_API_KEY`, `GROQ_API_KEY`, …) and skip the prompt entirely.
