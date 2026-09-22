@@ -72,7 +72,7 @@ SLASH_COMMANDS = [
     {"name": "/skills", "desc": "pick + attach a skill"},
     {"name": "/mcp", "desc": "list + use MCP servers"},
     {"name": "/retry", "desc": "re-run last message"},
-    {"name": "/jobs", "desc": "background jobs list/poll/kill"},
+    {"name": "/jobs", "desc": "background jobs list/poll/wait/kill/clear"},
     {"name": "/usage", "desc": "show token usage"},
     {"name": "/undo", "desc": "undo last file change"},
     {"name": "/logout", "desc": "clear saved API keys"},

@@ -3,7 +3,10 @@
 All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.5.5] - 2026-09-22
+### Added
+- Background jobs: `jobs(action=wait)` blocks until a job finishes or a timeout (1–120s) passes — prefer it over repeated polls; `jobs(action=clear)` drops finished jobs and deletes their logs (`/jobs wait <id> [seconds]`, `/jobs clear`).
+
 ### Changed
 - Deduplicated live tool-row append and trim handling in the terminal UI.
 

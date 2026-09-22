@@ -29,7 +29,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
             "Suffix ! with & (`!pytest -q &`) to run in the background; /jobs lists, polls, and kills jobs.",
             "/plan on|off — read-only exploration   /think on|off — deeper reasoning   /goal — objective, run it with /goal run",
             "/undo [n] — revert file changes   /retry — re-run last message",
-            "/jobs [id|kill id] — background jobs (poll long runs without blocking)",
+            "/jobs [id|wait id|kill id|clear] — background jobs (wait blocks until done)",
             "/usage — token spend + cost   /usage today|week|month|--by-model|export|clear   /budget — spend warnings (never blocks)",
             "/export [file] — save transcript   /copy [code] — copy reply",
             "/init [file] — project map   /clear — reset chat   /logout — wipe keys   /exit — quit",

@@ -82,6 +82,9 @@ Why it matters: `@path` pins the file into context. Writes still stop at a diff.
   [12:04:01] VITE v5 ready in 184 ms
 ```
 
+Block instead of polling with `jobs(action=wait, job_id=3)` (or `/jobs wait 3`
+— optional timeout in seconds), and drop finished jobs with `/jobs clear`.
+
 Why it matters: `!cmd &` detaches long-running processes. `/jobs` lists, tails, or kills them. Jobs are cleaned up when Hazzel exits.
 
 ## 5. `hazzel -p` for pipes and CI

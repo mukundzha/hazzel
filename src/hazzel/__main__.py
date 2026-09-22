@@ -528,7 +528,17 @@ def main(argv=None):
                 _last_response = agent.run_tool("jobs", {"action": "list"})
             else:
                 parts = arg.split()
-                if parts[0].lower() in ("kill", "stop", "cancel") and len(parts) > 1:
+                if parts[0].lower() in ("clear", "clean"):
+                    _last_response = agent.run_tool("jobs", {"action": "clear"})
+                elif parts[0].lower() in ("wait", "watch") and len(parts) > 1:
+                    timeout = 30
+                    if len(parts) > 2:
+                        try:
+                            timeout = float(parts[2])
+                        except ValueError:
+                            timeout = 30
+                    _last_response = agent.run_tool("jobs", {"action": "wait", "job_id": parts[1], "timeout": timeout})
+                elif parts[0].lower() in ("kill", "stop", "cancel") and len(parts) > 1:
                     _last_response = agent.run_tool("jobs", {"action": "kill", "job_id": parts[1]})
                 elif parts[0].lower() in ("poll", "log", "tail", "show") and len(parts) > 1:
                     _last_response = agent.run_tool("jobs", {"action": "poll", "job_id": parts[1]})

@@ -28,6 +28,9 @@ MAX_MEM_LINES = 2000
 TAIL_LINES_DEFAULT = 40
 TAIL_LINES_MAX = 200
 TAIL_CHARS = 4000
+WAIT_TIMEOUT_DEFAULT = 30
+WAIT_TIMEOUT_MAX = 120
+WAIT_POLL_INTERVAL = 0.2
 
 
 _lock = threading.Lock()
@@ -245,7 +248,7 @@ def start(command: str, cwd, description: str = "") -> str:
     hint = f"jobs(action=poll, job_id={job_id})"
     return (
         f"Started background job {job_id}: {short}\n"
-        f"Poll with {hint} (or /jobs {job_id}); kill with jobs(action=kill, job_id={job_id}).\n"
+        f"Poll with {hint} (or /jobs {job_id}); wait blocks until done; kill with jobs(action=kill, job_id={job_id}).\n"
         f"Full log: {log_name}"
     )
 
@@ -270,6 +273,72 @@ def poll(job_id, limit: int = TAIL_LINES_DEFAULT) -> str:
     return f"{head}\n{body}\nFull log: {job.log_path}"
 
 
+def _coerce_timeout(value) -> float:
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError):
+        return float(WAIT_TIMEOUT_DEFAULT)
+    if timeout != timeout:  # NaN
+        return float(WAIT_TIMEOUT_DEFAULT)
+    if timeout < 1:
+        return 1.0
+    if timeout > WAIT_TIMEOUT_MAX:
+        return float(WAIT_TIMEOUT_MAX)
+    return timeout
+
+
+def wait(job_id, limit: int = TAIL_LINES_DEFAULT, timeout=None) -> str:
+    """Block until a job finishes or ``timeout`` seconds pass.
+
+    Read-only: never touches the process. Returns the same receipt as
+    :func:`poll` so callers can use one code path for both.
+    """
+    if _parse_id(job_id) is None:
+        return "Usage: jobs(action=wait, job_id=<n>). Use jobs(action=list) to see jobs."
+    secs = _coerce_timeout(WAIT_TIMEOUT_DEFAULT if timeout is None else timeout)
+    deadline = _now() + secs
+    with _lock:
+        job = _jobs.get(_parse_id(job_id) or -1)
+    while job is not None and job.status() == "running" and _now() < deadline:
+        time.sleep(WAIT_POLL_INTERVAL)
+        with _lock:
+            job = _jobs.get(_parse_id(job_id) or -1)
+    out = poll(job_id, limit)
+    if job is not None and job.status() == "running":
+        label = int(secs) if float(secs).is_integer() else secs
+        out += f"\n[still running after {label}s — wait again or poll for the tail.]"
+    return out
+
+
+def _delete_log(path: str) -> None:
+    try:
+        if path:
+            Path(path).unlink()
+    except OSError:
+        pass
+
+
+def clear() -> str:
+    """Drop finished jobs from the registry and delete their logs.
+
+    Running jobs are never touched. Returns a short receipt.
+    """
+    with _lock:
+        finished = [j for j in _jobs.values() if j.status() != "running"]
+        running = len(_jobs) - len(finished)
+        for job in finished:
+            _jobs.pop(job.job_id, None)
+    for job in finished:
+        _delete_log(job.log_path)
+    if not finished and not running:
+        return "No background jobs. Start one with run_command(background=true) or `!command &`."
+    if not finished:
+        return f"No finished jobs to clear. {running} running."
+    noun = "job" if len(finished) == 1 else "jobs"
+    tail = f" {running} running." if running else ""
+    return f"Cleared {len(finished)} finished {noun}.{tail}"
+
+
 def list_jobs() -> str:
     with _lock:
         ordered = sorted(_jobs.values(), key=lambda j: j.job_id)
@@ -285,7 +354,7 @@ def list_jobs() -> str:
         else:
             mark = f"done exit {job.exit_code} in {_fmt_elapsed(job.elapsed())}"
         rows.append(f"- {job.job_id} · {mark} · {_short(job.command)}")
-    rows.append("Poll with jobs(action=poll, job_id=…) or /jobs <id>.")
+    rows.append("Poll with jobs(action=poll, job_id=…) or /jobs <id>; wait blocks until done; clear drops finished.")
     return "\n".join(rows)
 
 
@@ -315,7 +384,7 @@ def kill(job_id) -> str:
     return f"Killed background job {job.job_id}: {_short(job.command)}."
 
 
-def jobs_tool(action: str = "list", job_id=None, limit: int = TAIL_LINES_DEFAULT) -> str:
+def jobs_tool(action: str = "list", job_id=None, limit: int = TAIL_LINES_DEFAULT, timeout=None) -> str:
     act = (action or "list").strip().lower()
     if act in ("ls", "show"):
         act = "list"
@@ -323,17 +392,25 @@ def jobs_tool(action: str = "list", job_id=None, limit: int = TAIL_LINES_DEFAULT
         act = "poll"
     if act in ("stop", "cancel"):
         act = "kill"
+    if act == "watch":
+        act = "wait"
+    if act in ("clean", "purge"):
+        act = "clear"
     if act == "list":
         return list_jobs()
     if act == "poll":
         if _parse_id(job_id) is None:
             return "Usage: jobs(action=poll, job_id=<n>). Use jobs(action=list) to see jobs."
         return poll(job_id, limit)
+    if act == "wait":
+        return wait(job_id, limit, timeout)
+    if act == "clear":
+        return clear()
     if act == "kill":
         if _parse_id(job_id) is None:
             return "Usage: jobs(action=kill, job_id=<n>). Use jobs(action=list) to see jobs."
         return kill(job_id)
-    return "Usage: jobs(action=list|poll|kill, job_id=<n>)."
+    return "Usage: jobs(action=list|poll|wait|clear|kill, job_id=<n>)."
 
 
 def reset() -> None:

@@ -36,7 +36,7 @@ _HELP_SECTIONS = [
         ("/skills", "pick + attach a skill"),
         ("/mcp", "list + use MCP servers"),
         ("/retry", "re-run last message"),
-        ("/jobs", "background jobs [id|kill id]"),
+        ("/jobs", "background jobs [id|wait id|kill id|clear]"),
         ("/usage", "show token usage"),
         ("/undo", "undo last file change"),
         ("/logout", "clear saved API keys"),

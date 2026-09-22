@@ -60,12 +60,12 @@ def _plan_blocked(tool_name, arguments):
     if tool_name in ("write_file", "edit_file", "apply_edits", "run_command", "git_commit"):
         return True
     if tool_name == "jobs":
-        # list/poll are read-only; kill stops a process.
+        # list/poll/wait are read-only; kill stops a process, clear drops state.
         try:
             action = str((arguments or {}).get("action") or "list").strip().lower()
         except Exception:
             action = "list"
-        return action in ("kill", "stop", "cancel")
+        return action in ("kill", "stop", "cancel", "clear", "clean", "purge")
     if tool_name == "mcp":
         # Discovery is read-only; calls may run third-party code.
         try:
@@ -419,6 +419,10 @@ def _coerce_tool_args(tool_name, arguments):
             args["limit"] = int(args.get("limit", 40))
         except (TypeError, ValueError):
             args["limit"] = 40
+        try:
+            args["timeout"] = float(args.get("timeout", 30))
+        except (TypeError, ValueError):
+            args["timeout"] = 30
     return args
 
 
@@ -479,7 +483,7 @@ def run_tool(tool_name, arguments):
             action = arguments.get("action", "list")
             if not isinstance(action, str) or not action.strip():
                 action = "list"
-            return _bgjobs.jobs_tool(action, arguments.get("job_id"), arguments.get("limit", 40))
+            return _bgjobs.jobs_tool(action, arguments.get("job_id"), arguments.get("limit", 40), arguments.get("timeout", 30))
         if tool_name == "git_status":
             return git_status()
         if tool_name == "git_diff":

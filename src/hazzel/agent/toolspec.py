@@ -136,8 +136,8 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "jobs",
-            "description": "Manage background shell jobs started with run_command(background=true). list shows every job and state (read-only); poll returns the latest output tail for one job (read-only); kill stops one job. Poll instead of re-running a long command.",
-            "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "job_id": {"type": "integer"}, "limit": {"type": "integer"}}},
+            "description": "Manage background shell jobs started with run_command(background=true). list shows every job and state (read-only); poll returns the latest output tail for one job (read-only); wait blocks until one job finishes or timeout seconds pass (read-only, default 30, max 120) — prefer wait over repeated polls; clear drops finished jobs; kill stops one job.",
+            "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "job_id": {"type": "integer"}, "limit": {"type": "integer"}, "timeout": {"type": "number"}}},
         },
     },
     {
