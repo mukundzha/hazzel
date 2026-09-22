@@ -1,4 +1,34 @@
 from hazzel import ui
+from hazzel.ui import _state
+
+
+def test_ui_state_proxy_console(monkeypatch):
+    sentinel = object()
+
+    monkeypatch.setattr(ui, "console", sentinel)
+
+    assert ui.console is sentinel
+    assert _state.console is sentinel
+
+
+def test_ui_state_proxy_quiet(monkeypatch):
+    monkeypatch.setattr(_state, "_quiet", True)
+
+    assert ui._quiet is True
+
+    monkeypatch.setattr(ui, "_quiet", False)
+
+    assert _state._quiet is False
+    assert ui.is_quiet() is False
+
+
+def test_ui_state_proxy_loader(monkeypatch):
+    sentinel = object()
+
+    monkeypatch.setattr(ui, "_loader", sentinel)
+
+    assert ui._loader is sentinel
+    assert _state._loader is sentinel
 
 
 def test_confirm_accepts_yes_variants(monkeypatch):
@@ -22,7 +52,10 @@ def test_format_elapsed():
 
 
 def test_relativize_detail():
-    assert ui._relativize_detail("/home/mukund/Code/Hazzel/hn.py") in ("hn.py", "/home/mukund/Code/Hazzel/hn.py")
+    assert ui._relativize_detail("/home/mukund/Code/Hazzel/hn.py") in (
+        "hn.py",
+        "/home/mukund/Code/Hazzel/hn.py",
+    )
     assert ui._relativize_detail("utcfromtimestamp") == "utcfromtimestamp"
     assert ui._relativize_detail("/etc/hostname") == "/etc/hostname"
 
@@ -81,7 +114,9 @@ def test_fuzzy_score_exact_beats_gappy():
 
 
 def test_fuzzy_score_boundary_bonus():
-    assert ui._fuzzy_score("rc", "run_command.py") < ui._fuzzy_score("rc", "src/hazzel/formatter.py")
+    assert ui._fuzzy_score("rc", "run_command.py") < ui._fuzzy_score(
+        "rc", "src/hazzel/formatter.py"
+    )
 
 
 def test_mention_fuzzy_transpositions():
