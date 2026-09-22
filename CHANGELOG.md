@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.5.7] - 2026-09-22
+### Removed
+- `hazzel.ui.panels` compat shim (87 lines of re-exports); the one internal importer now imports from `messages` directly, and the package map documents the real modules (#20).
+
 ## [1.5.6] - 2026-09-22
 ### Removed
 - Dead UI stubs `show_turn_card` / `show_turn_from_trace` (always returned `None`, zero callers) plus their re-exports from `hazzel.ui` and the `panels` compat shim (#21).

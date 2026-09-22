@@ -448,8 +448,8 @@ def get_input(messages=None, prefill=""):
         from hazzel import agent as _agent0
 
         _used0, _window0 = _agent0.context_usage(messages)
-        from .panels import format_context_meter as _panels_format_meter
-        _static_tok = _panels_format_meter(_used0, _window0)
+        from .messages import format_context_meter as _format_meter
+        _static_tok = _format_meter(_used0, _window0)
         try:
             from hazzel.pricing import format_usd as _fmt_usd
             from hazzel.tokens import format_count as _fmt_count

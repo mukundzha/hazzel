@@ -24,7 +24,7 @@
 
 > First external PR merged in v1.5.1 — [good first issues are open](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-**Recently shipped:** dead UI stub removal — smaller surface, same terminal (1.5.6) · background jobs `wait`/`clear` — block until done, drop finished (1.5.5) · ask-once approvals — one y/N ends it, never asked twice (1.5.4) · `NO_COLOR` support — piped logs stay plain (#12, @DYNOSuprovo) · v1.5.3 SEO landing page · confirmation prompts accept `yes` — first external contribution (@Gambit-Checkmate, 1.5.1) · `/review` (1.5.0) — [full changelog](CHANGELOG.md)
+**Recently shipped:** compat shim removal — `panels.py` gone, same imports (1.5.7) · dead UI stub removal — smaller surface, same terminal (1.5.6) · background jobs `wait`/`clear` — block until done, drop finished (1.5.5) · ask-once approvals — one y/N ends it, never asked twice (1.5.4) · `NO_COLOR` support — piped logs stay plain (#12, @DYNOSuprovo) · v1.5.3 SEO landing page · confirmation prompts accept `yes` — first external contribution (@Gambit-Checkmate, 1.5.1) · `/review` (1.5.0) — [full changelog](CHANGELOG.md)
 
 ## Try it in your project
 
@@ -140,7 +140,7 @@ Type `/` to filter live, `@` to attach a file, `/docs` to page the full guide wi
 
 ## What it's honest about not being
 
-v1.5.6, early-stage. No autonomous PRs, no cloud dashboard, no session sync across machines. It doesn't replace your editor — it sits in the terminal next to it, and it stays small on purpose.
+v1.5.7, early-stage. No autonomous PRs, no cloud dashboard, no session sync across machines. It doesn't replace your editor — it sits in the terminal next to it, and it stays small on purpose.
 
 If you need a heavier, more automated agent, better options exist. If you want to see exactly what's about to happen to your files before it happens, this is built for that.
 

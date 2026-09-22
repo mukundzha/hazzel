@@ -7,10 +7,11 @@ Map (each module owns one concern, shared mutable state lives in _state):
                 SLASH_COMMANDS + @mention completion + fuzzy match,
                 prompt_toolkit input loop + Windows fallback
 - stream.py .... spinner, streaming tokens, turn lifecycle, quiet/print flags
-- panels.py .... turn cards, tool rows, context meter, history, confirm, diff,
-                git panels, review, log, viewer, undo, prompts, /help + /docs,
-                usage panels, summary, clipboard, export, selectors, skills,
-                api keys, logout
+- messages.py .. tool rows, context meter, history, confirm, assistant text
+- git/ ......... diff, status, log, commit flow, file viewer, review
+- help_docs.py . /help + /docs, prompts
+- usage.py ..... usage panels, summary, clipboard, export, budget
+- selectors.py . model/skill selectors, api keys, logout, skills
 
 ``from hazzel import ui`` keeps working — this package re-exports every
 public name the old module had.
