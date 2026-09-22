@@ -38,6 +38,8 @@ cd your-project
 hazzel
 ```
 
+<sub>If it fixes one failing test, [star it](https://github.com/mukundzha/hazzel) so the next person finds it too.</sub>
+
 ```text
 ❯ Fix the failing test in tests/test_agent.py
 
