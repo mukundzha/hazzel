@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>&nbsp;
-  <a href="https://pypi.org/project/hazzel/"><img src="https://img.shields.io/pypi/v/hazzel" alt="PyPI"></a>&nbsp;
+  <a href="https://pypi.org/project/hazzel/"><img src="https://img.shields.io/pypi/v/hazzel?cacheSeconds=3600" alt="PyPI"></a>&nbsp;
   <a href="https://pypistats.org/packages/hazzel"><img src="https://img.shields.io/badge/downloads-4.3k%2Fmonth-blue" alt="Downloads"></a>&nbsp;
   <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-319%20passing-brightgreen" alt="Tests"></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-green" alt="License"></a>&nbsp;
