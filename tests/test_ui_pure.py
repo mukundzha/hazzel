@@ -194,3 +194,26 @@ def test_show_tool_result_signature_accepts_new_param():
     assert "read_file" in out
     assert "hello" in out
     assert "world" in out
+
+
+def test_show_tool_loader_rows_are_capped(monkeypatch):
+    from hazzel.ui import input as ui_input
+
+    class Loader:
+        def __init__(self):
+            self.updates = 0
+
+        def update(self, _body):
+            self.updates += 1
+
+    loader = Loader()
+    monkeypatch.setattr(ui, "_quiet", False)
+    monkeypatch.setattr(ui, "_tool_rows", [])
+    monkeypatch.setattr(ui, "_loader", loader)
+    monkeypatch.setattr(ui, "_live_body", lambda _text: "body")
+    monkeypatch.setattr(ui_input, "_MAX_TOOL_ROWS", 3)
+
+    ui.show_tool("read_file", "pyproject.toml", success=True, result="one\ntwo\nthree")
+
+    assert len(ui._tool_rows) == 3
+    assert loader.updates == 2

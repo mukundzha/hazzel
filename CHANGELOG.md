@@ -4,6 +4,8 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Deduplicated live tool-row append and trim handling in the terminal UI.
 
 ## [1.5.4] - 2026-09-21
 ### Added
