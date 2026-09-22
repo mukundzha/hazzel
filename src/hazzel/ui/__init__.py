@@ -120,8 +120,6 @@ from .messages import (
     show_reasoning,
     show_summary,
     show_tool,
-    show_turn_card,
-    show_turn_from_trace,
     show_undo,
     show_user_command,
 )
@@ -240,8 +238,6 @@ __all__ = [
     "is_print_mode",
     "set_auto_approve",
     "was_thinking_streamed",
-    "show_turn_from_trace",
-    "show_turn_card",
     "show_hazzel_message",
     "show_reasoning",
     "format_context_plain",

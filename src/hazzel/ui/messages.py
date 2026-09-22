@@ -8,14 +8,6 @@ from ._state import DIM_COLOR, ERROR_COLOR, HAZZEL_COLOR, SUCCESS_COLOR, is_no_c
 from . import input as _ui_input
 from . import stream as _ui_stream
 
-def show_turn_from_trace(user_command, trace, summary):
-    return None
-
-
-def show_turn_card(user_command, tool_rows, summary_lines, model="Hazzel 1.3.2", root="~/hazzel"):
-    return None
-
-
 def show_hazzel_message(message):
     _ui_stream.hide_loader()
     if not message or not message.strip():

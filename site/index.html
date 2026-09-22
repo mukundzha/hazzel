@@ -30,7 +30,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Hazzel","alternateName":"Hazzel terminal coding agent","applicationCategory":"DeveloperApplication","operatingSystem":["macOS","Linux","Windows"],"softwareVersion":"1.5.5","license":"https://www.gnu.org/licenses/agpl-3.0.html","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Mukund Jha","url":"https://github.com/mukundzha"},"codeRepository":"https://github.com/mukundzha/hazzel","downloadUrl":"https://pypi.org/project/hazzel/","programmingLanguage":"Python","requirements":"Python 3.10 or newer","description":"Open source AI coding agent for the terminal. Reads code, edits files, runs commands, reviews diffs — approval-first, with your own API key (Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter, Ollama)."}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Hazzel","alternateName":"Hazzel terminal coding agent","applicationCategory":"DeveloperApplication","operatingSystem":["macOS","Linux","Windows"],"softwareVersion":"1.5.6","license":"https://www.gnu.org/licenses/agpl-3.0.html","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Mukund Jha","url":"https://github.com/mukundzha"},"codeRepository":"https://github.com/mukundzha/hazzel","downloadUrl":"https://pypi.org/project/hazzel/","programmingLanguage":"Python","requirements":"Python 3.10 or newer","description":"Open source AI coding agent for the terminal. Reads code, edits files, runs commands, reviews diffs — approval-first, with your own API key (Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter, Ollama)."}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Hazzel free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Hazzel is free and open source (AGPL-3.0). You pay your model provider directly for API usage — or nothing at all with local Ollama models. No subscription."}},{"@type":"Question","name":"Which AI models does Hazzel support?","acceptedAnswer":{"@type":"Answer","text":"Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter and local Ollama — one API key each, switched with /model."}},{"@type":"Question","name":"Does Hazzel change files without asking?","acceptedAnswer":{"@type":"Answer","text":"No. Every file edit shows a diff before it applies, shell commands ask first, and every write is checkpointed so /undo always restores prior bytes."}},{"@type":"Question","name":"What do I need to install Hazzel?","acceptedAnswer":{"@type":"Answer","text":"Python 3.10+ on macOS, Linux or Windows. pip install hazzel, run hazzel, add a key with /model."}},{"@type":"Question","name":"How is Hazzel different from Aider or Claude Code?","acceptedAnswer":{"@type":"Answer","text":"Hazzel is ~10k lines of Python you can trace end to end, bring-your-own-key with no subscription, and approval-first on every mutation with automatic undo checkpoints."}}]}
@@ -53,7 +53,7 @@
   <section aria-labelledby="hero">
     <h1 id="hero">Hazzel: the open source terminal coding agent</h1>
     <blockquote>A tiny AI coding assistant that lives in your terminal — approval-first, bring your own key.</blockquote>
-    <p class="dim">hazzel v1.5.5 · free · AGPL-3.0 · macOS, Linux, Windows · <a href="https://github.com/mukundzha/hazzel">★ star if useful</a></p>
+    <p class="dim">hazzel v1.5.6 · free · AGPL-3.0 · macOS, Linux, Windows · <a href="https://github.com/mukundzha/hazzel">★ star if useful</a></p>
     <p>Hazzel is a <strong>terminal coding agent</strong> and CLI harness: it reads code, edits files, runs commands, reviews diffs and reads the web — <strong>always with your approval first</strong>. Every step is visible, every mutation goes through you.</p>
     <p>It is <strong>open source</strong> (~10k lines of Python you can trace end to end), <strong>model-agnostic</strong> (Groq, OpenAI, Anthropic, Mistral, Gemini, DeepSeek, OpenRouter, local Ollama), and <strong>free</strong> — no subscription. You pay your provider directly, or nothing at all on local models.</p>
     <figure class="demo">
@@ -73,7 +73,7 @@ cd your-project
 hazzel</code></pre>
     <p>The whole loop is <code>agent/core.py</code>, every action is in <code>tools/</code>, the undo system is <code>safety.py</code> — and Hazzel stops before every write to show you what is about to happen.</p>
     <div class="turn" aria-label="Example session">
-      <p class="turn-head">Hazzel <span class="dim">1.5.5 · ~/hazzel</span></p>
+      <p class="turn-head">Hazzel <span class="dim">1.5.6 · ~/hazzel</span></p>
       <p class="turn-prompt">❯ Fix the failing test in tests/test_agent.py</p>
       <p class="turn-tools">read_file · edit_file (diff approved) · run_command pytest -q — passed</p>
       <p class="turn-meta">openai/gpt-oss-120b · 1.2k tokens · $0.004 session · build · @ tag file</p>

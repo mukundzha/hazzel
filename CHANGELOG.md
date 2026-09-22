@@ -3,7 +3,11 @@
 All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.5.5] - 2026-09-22
+## [Unreleased]
+
+## [1.5.6] - 2026-09-22
+### Removed
+- Dead UI stubs `show_turn_card` / `show_turn_from_trace` (always returned `None`, zero callers) plus their re-exports from `hazzel.ui` and the `panels` compat shim (#21).
 ### Added
 - Background jobs: `jobs(action=wait)` blocks until a job finishes or a timeout (1–120s) passes — prefer it over repeated polls; `jobs(action=clear)` drops finished jobs and deletes their logs (`/jobs wait <id> [seconds]`, `/jobs clear`).
 

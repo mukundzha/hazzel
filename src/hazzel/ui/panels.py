@@ -61,8 +61,6 @@ from .messages import (
     show_reasoning,
     show_summary,
     show_tool,
-    show_turn_card,
-    show_turn_from_trace,
     show_undo,
     show_user_command,
 )
