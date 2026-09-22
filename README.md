@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Hazzel demo — read a failing test, edit the file, run pytest" width="720" />
+  <img src="assets/demo.gif" alt="Hazzel demo — ask it to fix the failing test in test.py: read, approve the edit with y, tests pass" width="720" />
 </p>
 
 > First external PR merged in v1.5.1 — [good first issues are open](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
