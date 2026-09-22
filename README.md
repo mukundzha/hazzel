@@ -179,6 +179,10 @@ If you'd rather throw money at the problem, that works too. It goes straight int
   <a href="https://github.com/DYNOSuprovo"><img src="https://avatars.githubusercontent.com/DYNOSuprovo?v=4&s=80" width="64" alt="DYNOSuprovo"/></a>
   &nbsp;&nbsp;
   <a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/HarshRajSinghania?v=4&s=80" width="64" alt="HarshRajSinghania"/></a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/binaryCoder-101"><img src="https://avatars.githubusercontent.com/binaryCoder-101?v=4&s=80" width="64" alt="binaryCoder-101"/></a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/pollychen-lab"><img src="https://avatars.githubusercontent.com/pollychen-lab?v=4&s=80" width="64" alt="pollychen-lab"/></a>
 </p>
 
 <p align="center">
