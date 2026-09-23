@@ -4,6 +4,8 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- PyPI update notice (#10): interactive REPL startup does a best-effort check against `https://pypi.org/pypi/hazzel/json` (~1s timeout, 24h cache in `~/.config/hazzel/`) and prints one dim line when behind — silent on network errors, never in `hazzel -p`.
 
 ## [1.5.7] - 2026-09-22
 ### Removed

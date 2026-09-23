@@ -86,6 +86,15 @@ def main(argv=None):
         raise SystemExit(_print_mode.run_print(final, approve=args.approve, output_format=args.output_format))
     wincompat.enable_ansi()
     ui.show_welcome(config.get_current_display_name(), config.PROJECT_ROOT)
+    try:
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            from hazzel import update_check as _uc
+
+            _latest = _uc.check_for_update()
+            if _latest:
+                console.print(f"  {_uc.format_notice(_latest)}", style="dim")
+    except Exception:
+        pass
     if not config.has_any_key():
         console.print("  No API key yet — run /model to add one (takes ~10s).", style="dim")
         console.print()
