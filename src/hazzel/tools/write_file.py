@@ -34,7 +34,7 @@ def write_file(path, content):
             if not approved:
                 return "Write cancelled by user"
 
-    safety.checkpoint(path)
+    safety.checkpoint(path, content or "")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)

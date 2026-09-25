@@ -88,7 +88,7 @@ def apply_edits(edits):
             return "Edits cancelled by user"
     try:
         for _, plan in changed:
-            safety.checkpoint(plan["resolved"])
+            safety.checkpoint(plan["resolved"], plan["working"])
         for _, plan in changed:
             plan["resolved"].write_text(plan["working"])
     except OSError as error:

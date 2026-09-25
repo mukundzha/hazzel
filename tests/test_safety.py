@@ -47,7 +47,7 @@ def test_per_file_cap(tmp_path, monkeypatch):
     target.write_text("x")
     for _ in range(safety.MAX_DEPTH_PER_FILE + 5):
         safety.checkpoint(target)
-    assert len([1 for k, _ in safety._events if k == str(target)]) == safety.MAX_DEPTH_PER_FILE
+    assert len([1 for k, _, _ in safety._events if k == str(target)]) == safety.MAX_DEPTH_PER_FILE
 
 
 def test_diff_truncates():

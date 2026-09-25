@@ -310,6 +310,36 @@ def show_undo(restored):
     _st.console.print()
 
 
+def show_redo(redone):
+    if not redone:
+        _st.console.print(Text("  Nothing to redo.", style=DIM_COLOR))
+        _st.console.print()
+        return
+    for key, action in redone:
+        text = Text()
+        text.append("  ✓ ", style=SUCCESS_COLOR)
+        text.append(f"{action} ", style="white")
+        text.append(_short_detail(key), style=DIM_COLOR)
+        _st.console.print(text)
+    _st.console.print()
+
+
+def show_undo_preview(items):
+    from .git.diff import show_diff
+
+    if not items:
+        _st.console.print(Text("  Nothing to undo.", style=DIM_COLOR))
+        _st.console.print()
+        return
+    for key, action, diff in items:
+        text = Text()
+        text.append("  • ", style=DIM_COLOR)
+        text.append(f"{action} ", style="white")
+        text.append(_short_detail(key), style=DIM_COLOR)
+        _st.console.print(text)
+        show_diff(diff)
+
+
 def prompt_goal_criteria():
     was_active = _ui_stream._pause_loader()
     try:

@@ -64,7 +64,7 @@ No project quiz, no config ceremony — the read-only commands answer instantly,
 Most agents ask you to trust a black box. Hazzel asks you to trust three specific, inspectable mechanisms instead:
 
 * **Every write is a diff you approve, first.** Shell commands too — except a small allowlist of true read-onlys (`ls`, `cat`, `git status`) that skip the queue. And one decision sticks: approve or deny once per turn, never re-prompted for the same call.
-* **Every write is checkpointed, automatically.** Prior bytes snapshotted to `~/.config/hazzel/undo/` (200 events, 20 per file) before anything lands. `/undo` restores them.
+* **Every write is checkpointed, automatically.** Prior bytes snapshotted to `~/.config/hazzel/undo/` (200 events, 20 per file) before anything lands. `/undo` reverts only the agent's hunks and keeps edits you made afterwards (`preview` to look first, `--force` for the old blind restore, `/redo` to reapply).
 * **Commands are sandboxed to your project root.** `git reset --hard` and `clean` are blocked outright; raw `git commit` is steered into `/commit` with its own diff preview.
 
 You can verify all three claims in about 200 lines: `src/hazzel/safety.py`, `src/hazzel/tools/run_command.py`.
@@ -90,7 +90,7 @@ Where Hazzel stands out, measured against the tools people actually compare it t
 | Price model | free · BYOK | free · BYOK | subscription |
 | Local models | Ollama, keyless, zero config | supported, needs env setup | no |
 | Readable end to end | ~10k lines | tens of thousands | closed source |
-| `/undo` without git | byte-level snapshots | git-commit based | varies |
+| `/undo` without git | selective snapshots (keeps your edits) | git-commit based | varies |
 | MCP client | stdio, zero new deps | — | varies |
 
 Aider is excellent — this is about fit, not superiority.
@@ -134,7 +134,7 @@ Switch anytime with `/model`. Nothing is metered by Hazzel — you pay your prov
 | Git        | `/status` · `/diff [--staged]` · `/review [--staged]` · `/commit` · `/log`             |
 | Cost       | `/usage [today\|week\|month\|--by-model]` · `/budget`                                  |
 | Extend     | `/mcp [server [tool]]` · `/skills [name]` · `/init`                                   |
-| Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/session restore` · `/clear` |
+| Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/redo` · `/session restore` · `/clear` |
 
 Type `/` to filter live, `@` to attach a file, `/docs` to page the full guide without leaving the terminal — see [docs/EXAMPLES.md](docs/EXAMPLES.md) for worked transcripts.
 

@@ -50,7 +50,7 @@ def edit_file(path, old_text, new_text):
         if not approved:
             return "Edit cancelled by user"
 
-    safety.checkpoint(resolved)
+    safety.checkpoint(resolved, updated)
     resolved.write_text(updated)
 
     tool_cache.invalidate_fs()

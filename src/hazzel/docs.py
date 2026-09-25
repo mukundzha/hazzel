@@ -28,7 +28,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
             "Run shell commands with ! or ask Hazzel to run them (approval first).",
             "Suffix ! with & (`!pytest -q &`) to run in the background; /jobs lists, polls, and kills jobs.",
             "/plan on|off — read-only exploration   /think on|off — deeper reasoning   /goal — objective, run it with /goal run",
-            "/undo [n] — revert file changes   /retry — re-run last message",
+            "/undo [n|preview|--force] [path] — revert agent change, keep yours   /redo — reapply   /retry — re-run last message",
             "/jobs [id|wait id|kill id|clear] — background jobs (wait blocks until done)",
             "/usage — token spend + cost   /usage today|week|month|--by-model|export|clear   /budget — spend warnings (never blocks)",
             "/export [file] — save transcript   /copy [code] — copy reply",
@@ -52,7 +52,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
         [
             "Edits show a diff first. Shell commands ask first (read-only ones like ls and git status skip the queue).",
             "Destructive git (reset --hard, --force) stays blocked — use the git tools.",
-            "Everything runs inside your project root. /undo restores any file change.",
+            "Everything runs inside your project root. /undo reverts agent edits, keeps yours.",
         ],
     ),
     (

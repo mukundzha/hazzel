@@ -24,5 +24,6 @@ contributors can see how past work was scoped — active work is below.
 | Richer MCP coverage | Resources/prompts plus SSE/streamable-HTTP transports beyond stdio. | Planned — [good first issue](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
 | Windows polish | Path handling, pager, and clipboard gaps on native Windows. | Planned — help wanted |
 | `hazzel -p` scripting | Pipe diffs in, get summaries out — JSON output + exit codes for CI. | In progress (`-p` + `--output-format json` shipped; richer CI recipes coming) |
+| Selective undo | `/undo` reverts only agent hunks and keeps later user edits (preview + redo). | In progress (merge + `/redo` in tree, unreleased) |
 
 Have a use case that isn't covered? [Open a feature request](https://github.com/mukundzha/hazzel/issues/new?template=feature_request.md) — small and inspectable beats big and magical.

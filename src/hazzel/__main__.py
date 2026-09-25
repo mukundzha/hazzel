@@ -572,15 +572,46 @@ def main(argv=None):
             else:
                 ui.show_error(out)
             continue
-        parts = user_input.strip().lower().split()
-        if parts and parts[0] in ["/undo", "undo"]:
+        parts = user_input.strip().split()
+        if parts and parts[0].lower() in ["/undo", "undo"]:
+            args = parts[1:]
+            preview = any(a.lower() in ("preview", "--preview", "-p") for a in args)
+            force = any(a.lower() in ("--force", "-f", "force") for a in args)
+            rest = [a for a in args if a.lower() not in (
+                "preview", "--preview", "-p", "--force", "-f", "force")]
             count = 1
-            if len(parts) > 1:
+            paths = []
+            for tok in rest:
                 try:
-                    count = max(1, int(parts[1]))
+                    count = max(1, int(tok))
+                    continue
                 except ValueError:
-                    count = 1
-            ui.show_undo(safety.undo(count))
+                    pass
+                paths.append(tok)
+            if preview:
+                ui.show_undo_preview(safety.preview_undo(count, paths or None))
+            else:
+                ui.show_undo(safety.undo(count, force=force, paths=paths or None))
+            continue
+        if parts and parts[0].lower() in ["/redo", "redo"]:
+            args = parts[1:]
+            preview = any(a.lower() in ("preview", "--preview", "-p") for a in args)
+            force = any(a.lower() in ("--force", "-f", "force") for a in args)
+            rest = [a for a in args if a.lower() not in (
+                "preview", "--preview", "-p", "--force", "-f", "force")]
+            count = 1
+            paths = []
+            for tok in rest:
+                try:
+                    count = max(1, int(tok))
+                    continue
+                except ValueError:
+                    pass
+                paths.append(tok)
+            if preview:
+                ui.show_undo_preview(safety.preview_redo(count, paths or None))
+            else:
+                ui.show_redo(safety.redo(count, force=force, paths=paths or None))
             continue
         if user_input.strip().lower() in ["/clear", "/c", "clear"]:
             messages.clear()

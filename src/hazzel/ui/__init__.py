@@ -122,6 +122,8 @@ from .messages import (
     show_summary,
     show_tool,
     show_undo,
+    show_redo,
+    show_undo_preview,
     show_user_command,
 )
 from .selectors import (
@@ -262,6 +264,8 @@ __all__ = [
     "show_git_log",
     "show_file_viewer",
     "show_undo",
+    "show_redo",
+    "show_undo_preview",
     "prompt_goal_criteria",
     "show_model_selected",
     "show_cleared",
