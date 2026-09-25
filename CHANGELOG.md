@@ -4,6 +4,8 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [1.6.0] - 2026-09-25
 ### Added
 - Selective undo (`safety.py`): file tools now record what the agent wrote alongside the checkpoint, so `/undo` reverts only agent hunks and keeps edits you made afterwards (per-hunk 3-way merge, stdlib only). `/undo preview` shows the merge without touching disk, `/undo --force` restores the old blind behavior, `/undo [n] [path]` scopes by count/file, and `/redo` reapplies (preserving newer edits). Shell-command checkpoints without a recorded result keep the legacy blind restore.
 - PyPI update notice (#10): interactive REPL startup does a best-effort check against `https://pypi.org/pypi/hazzel/json` (~1s timeout, 24h cache in `~/.config/hazzel/`) and prints one dim line when behind — silent on network errors, never in `hazzel -p`.
