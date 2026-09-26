@@ -151,7 +151,7 @@ If Hazzel is useful, the cheapest support costs nothing — use it, report what 
 If you'd rather throw money at the problem, that works too. It goes straight into maintainer time for docs, fixes, and reviews:
 
 <p align="center">
-  <a href="https://paypal.me/mukundzi">
+  <a href="https://www.paypal.com/ncp/payment/GV2Z7A68N6N6E">
     <img src="https://img.shields.io/badge/Donate-PayPal-0070BA?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal">
   </a>
 </p>
