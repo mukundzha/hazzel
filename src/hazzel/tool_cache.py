@@ -44,6 +44,7 @@ WEB = TTLCache(maxsize=128, ttl=600.0)
 FETCH = TTLCache(maxsize=128, ttl=600.0)
 LIST = TTLCache(maxsize=256, ttl=10.0)
 SEARCH = TTLCache(maxsize=128, ttl=20.0)
+GLOB = TTLCache(maxsize=128, ttl=20.0)
 NAME_INDEX = TTLCache(maxsize=4, ttl=30.0)
 REPO = TTLCache(maxsize=4, ttl=10.0)
 
@@ -51,4 +52,5 @@ REPO = TTLCache(maxsize=4, ttl=10.0)
 def invalidate_fs():
     LIST.clear()
     SEARCH.clear()
+    GLOB.clear()
     NAME_INDEX.clear()

@@ -26,7 +26,7 @@ def list_files(path):
         return f"Tool error: cannot list directory ({error}). Check permissions."
     names = [item.name + ("/" if item.is_dir() else "") for item in items[:200]]
     if len(items) > 200:
-        names.append(f"[{len(items) - 200} more; use search_files to narrow]")
+        names.append(f"[{len(items) - 200} more; use glob or search_files to narrow]")
     if tool_cache.caching_enabled():
         tool_cache.LIST.set(key, names)
     return names

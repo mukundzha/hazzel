@@ -4,6 +4,14 @@ All notable changes to Hazzel are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- `glob` tool: find files by path pattern (`**/*.py`, `src/**/test_*.py`, `**/*.{json,toml}`) with `*`/`**`/`?`/`[a-z]`/`{a,b}` support. Read-only, plan-mode safe, parallel-safe, TTL-cached and invalidated by file writes. Results are project-relative with `/` separators, capped at 100 matches, and a trailing `/` in the pattern matches directories only. Fills the gap where `list_files` was single-level and `search_files` only greps contents.
+
+### Changed
+- `list_files` overflow hint now points at `glob` as well as `search_files`.
+
+### Fixed
+- README test badge corrected to the real count (319 → 368).
 
 ## [1.6.0] - 2026-09-25
 ### Added

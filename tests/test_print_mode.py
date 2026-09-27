@@ -117,7 +117,7 @@ def test_read_piped_stdin_truncates():
 def test_active_tools_readonly_is_plan_set():
     set_print_approvals(False)
     names = {t.get("function", {}).get("name") for t in _active_tools()}
-    assert names == {"list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "skill", "mcp", "jobs"}
+    assert names == {"list_files", "read_file", "search_files", "glob", "git_status", "git_diff", "web_search", "fetch_url", "skill", "mcp", "jobs"}
 
 
 def test_active_tools_approve_is_full_set():

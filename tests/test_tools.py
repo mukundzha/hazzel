@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from hazzel.tools.edit_file import edit_file
 from hazzel.tools.fetch_url import fetch_url
+from hazzel.tools.glob_files import glob_files
 from hazzel.tools.list_files import list_files
 from hazzel.tools.read_file import read_file
 from hazzel.tools.search_files import search_files
@@ -55,6 +56,93 @@ def test_search_bad_regex():
 
 def test_search_empty_pattern():
     assert search_files("").startswith("Search pattern is required")
+
+
+def test_glob_required():
+    assert glob_files("").startswith("Glob pattern is required")
+    assert glob_files("  ").startswith("Glob pattern is required")
+
+
+def test_glob_missing_path():
+    assert glob_files("*.py", "definitely_missing_dir_xyz").startswith("Path does not exist")
+
+
+def test_glob_outside():
+    assert glob_files("*.py", "../outside_root_xyz").startswith("Path is outside the project root")
+
+
+def test_glob_file_path():
+    assert glob_files("*.py", "pyproject.toml").startswith("Path is not a directory")
+
+
+def test_glob_recursive():
+    out = glob_files("**/test_tools.py")
+    assert "tests/test_tools.py" in out
+
+
+def test_glob_star_stays_in_root():
+    assert glob_files("*.toml") == ["pyproject.toml"]
+
+
+def test_glob_no_match_hints_recursion():
+    out = glob_files("zzz_no_such_name_xyz.py")
+    assert out.startswith("No matches") and "**/zzz_no_such_name_xyz.py" in out
+
+
+def test_glob_skips_vcs_and_caches():
+    out = glob_files("**/*", "src")
+    assert not any(row.startswith(".git/") for row in out)
+    assert not any("__pycache__" in row for row in out)
+    assert "src/hazzel/tools/glob_files.py" in out
+
+
+def test_glob_caps_output():
+    out = glob_files("**/*")
+    assert out[-1].startswith("[more than 100 matches") or out[-1].startswith("[stopped after")
+
+
+def test_glob_dirs_only():
+    out = glob_files("*/")
+    assert out
+    assert all(row.endswith("/") for row in out)
+    assert "src/" in out
+
+
+def test_glob_brace_group():
+    out = glob_files("**/*.{toml,cfg}")
+    assert "pyproject.toml" in out
+    assert not any(row.endswith(".py") for row in out)
+
+
+def test_glob_character_class():
+    assert "pyproject.toml" in glob_files("**/[pt]*.toml")
+
+
+def test_glob_sorted_and_capped():
+    out = glob_files("**/*.py", "src")
+    assert out == sorted(out)
+    assert any(row.endswith("toolspec.py") for row in out)
+
+
+def test_glob_leading_dot_slash():
+    assert glob_files("./pyproject.toml") == ["pyproject.toml"]
+
+
+def test_glob_registered_as_read_only_tool():
+    from hazzel import agent
+
+    assert "glob" in agent.TOOL_NAMES
+    assert "glob" in agent.PLAN_TOOL_NAMES
+    assert "glob" in agent.PARALLEL_SAFE
+    schema = next(t for t in agent.TOOLS if t["function"]["name"] == "glob")
+    assert schema["function"]["parameters"]["required"] == ["pattern"]
+
+
+def test_glob_dispatch_reaches_the_tool():
+    from hazzel import agent
+
+    assert agent.run_tool("glob", {"pattern": "pyproject.toml"}) == ["pyproject.toml"]
+    assert "src/hazzel/tools/glob_files.py" in agent.run_tool("find_files", {"glob": "**/glob_files.py"})
 
 
 def test_write_too_large():

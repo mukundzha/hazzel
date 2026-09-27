@@ -103,6 +103,14 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "glob",
+            "description": "Find files by path pattern, e.g. '**/*.py', 'src/**/test_*.py', '**/*.{json,toml}'. Read-only, returns paths sorted. Use this to locate files by name — search_files only greps contents. Patterns match from the search root, so '**/' is needed to recurse; a trailing '/' matches directories only.",
+            "parameters": {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}}, "required": ["pattern"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "write_file",
             "description": "Create or overwrite a whole file. Undoable.",
             "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]},
@@ -198,9 +206,9 @@ TOOLS = [
     },
 ]
 
-TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "write_file", "edit_file", "apply_edits", "run_command", "jobs", "git_status", "git_diff", "git_commit", "web_search", "fetch_url", "skill", "mcp"])
+TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "glob", "write_file", "edit_file", "apply_edits", "run_command", "jobs", "git_status", "git_diff", "git_commit", "web_search", "fetch_url", "skill", "mcp"])
 
-PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "skill", "mcp", "jobs"])
+PLAN_TOOL_NAMES = frozenset(["list_files", "read_file", "search_files", "glob", "git_status", "git_diff", "web_search", "fetch_url", "skill", "mcp", "jobs"])
 
 PLAN_TOOLS = [t for t in TOOLS if t.get("function", {}).get("name") in PLAN_TOOL_NAMES]
 
@@ -226,6 +234,6 @@ PRINT_BLOCKED_MESSAGE = (
     "no writes or runs until the user re-runs with -y/--yes."
 )
 
-PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "skill", "jobs"})
+PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "glob", "git_status", "git_diff", "web_search", "fetch_url", "skill", "jobs"})
 PARALLEL_MAX_WORKERS = 8
 PARALLEL_TOOL_TIMEOUT = 60.0

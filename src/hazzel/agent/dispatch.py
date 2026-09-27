@@ -11,6 +11,7 @@ from hazzel.tools.fetch_url import fetch_url
 from hazzel.tools.git_commit import git_commit
 from hazzel.tools.git_diff import git_diff
 from hazzel.tools.git_status import git_status
+from hazzel.tools.glob_files import glob_files
 from hazzel.tools.web_search import web_search
 from hazzel.tools.list_files import list_files
 from hazzel.tools.read_file import read_file
@@ -124,7 +125,7 @@ def _tool_detail(tool_name, arguments):
 
 
 def _tool_cache_key(tool_name, arguments, detail):
-    if tool_name in ("read_file", "list_files", "search_files", "git_status", "git_diff", "web_search", "fetch_url", "skill"):
+    if tool_name in ("read_file", "list_files", "search_files", "glob", "git_status", "git_diff", "web_search", "fetch_url", "skill"):
         return (tool_name, str(detail), str(arguments.get("offset", "")), str(arguments.get("limit", "")), str(arguments.get("pattern", "")))
     if tool_name == "mcp":
         # Discovery is cacheable; calls may have side effects — never cache.
@@ -219,6 +220,9 @@ _TOOL_ALIASES = {
     "grep": "search_files",
     "find": "search_files",
     "search": "search_files",
+    "find_files": "glob",
+    "glob_files": "glob",
+    "fd": "glob",
     "create": "write_file",
     "write": "write_file",
     "new_file": "write_file",
@@ -293,6 +297,17 @@ def _coerce_tool_args(tool_name, arguments):
             if "pattern" not in args and args.get(k) is not None:
                 args["pattern"] = args[k]
                 break
+        args.setdefault("path", ".")
+    elif tool_name == "glob":
+        for k in ("glob", "glob_pattern", "file_pattern", "query", "text", "term", "name"):
+            if "pattern" not in args and args.get(k) is not None:
+                args["pattern"] = args[k]
+                break
+        if "path" not in args:
+            for k in ("dir", "directory", "root", "folder", "cwd", "base", "target"):
+                if args.get(k) is not None:
+                    args["path"] = args.pop(k)
+                    break
         args.setdefault("path", ".")
     elif tool_name == "web_search":
         if "query" not in args:
@@ -467,6 +482,8 @@ def run_tool(tool_name, arguments):
             return read_file(arguments["path"], arguments.get("offset", 1) or 1, arguments.get("limit", 60))
         if tool_name == "search_files":
             return search_files(arguments["pattern"], arguments.get("path", "."), bool(arguments.get("regex", False)))
+        if tool_name == "glob":
+            return glob_files(arguments["pattern"], arguments.get("path", ".") or ".")
         if tool_name == "write_file":
             return write_file(arguments["path"], arguments["content"])
         if tool_name == "edit_file":
