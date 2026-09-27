@@ -22,6 +22,7 @@ from hazzel.tools.write_file import write_file
 from .toolspec import (
     MAX_TOOL_RESULT_CHARS,
     PARALLEL_SAFE,
+    PARALLEL_SAFE_JOB_WAIT,
     PLAN_BLOCKED_MESSAGE,
     PLAN_TOOLS,
     PRINT_BLOCKED_MESSAGE,
@@ -78,7 +79,21 @@ def _plan_blocked(tool_name, arguments):
 
 
 def _is_parallel_safe(tool_name, arguments):
-    return tool_name in PARALLEL_SAFE
+    if tool_name not in PARALLEL_SAFE:
+        return False
+    if tool_name == "jobs" and isinstance(arguments, dict):
+        # A wait can legitimately outlast PARALLEL_TOOL_TIMEOUT, which would
+        # report a bogus timeout for the whole batch. Keep it off the fan-out.
+        try:
+            action = str(arguments.get("action") or "list").strip().lower()
+        except Exception:
+            action = "list"
+        if action in ("wait", "block"):
+            try:
+                return float(arguments.get("timeout") or 0) <= PARALLEL_SAFE_JOB_WAIT
+            except (TypeError, ValueError):
+                return False
+    return True
 
 
 def _tool_detail(tool_name, arguments):

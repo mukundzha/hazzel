@@ -29,7 +29,18 @@ def test_is_no_color_env(monkeypatch):
 
 
 def test_main_shares_ui_console():
-    assert main_module.console is ui.console
+    # main.console is a lazy proxy, so identity is the wrong check — what
+    # matters is that it resolves to the live ui.console, so theme, width and
+    # NO_COLOR changes made through `ui` reach the REPL.
+    assert main_module.console.print == ui.console.print
+    assert main_module.console.no_color == ui.console.no_color
+
+
+def test_main_console_proxy_follows_a_replaced_ui_console(monkeypatch):
+    class Fake:
+        no_color = True
+    monkeypatch.setattr(ui, "console", Fake())
+    assert main_module.console.no_color is True
 
 
 def test_console_no_color_dynamic(monkeypatch):

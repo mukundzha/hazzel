@@ -7,7 +7,22 @@ from hazzel import ui
 from hazzel import config
 from hazzel import usage_store
 from hazzel import wincompat
-console = ui.console
+
+
+class _LazyConsole:
+    """Forwards to rich's console on first use.
+
+    rich costs ~150ms to import and `hazzel --version` / `--help` never draw,
+    so binding the real console at import time made every invocation pay for a
+    terminal renderer. Resolving per call also keeps monkeypatching
+    `ui.console` effective, which a captured reference would have broken.
+    """
+
+    def __getattr__(self, name):
+        return getattr(ui.console, name)
+
+
+console = _LazyConsole()
 
 messages = [{"role": "system", "content": agent.build_system_prompt(config.PROJECT_ROOT)}]
 

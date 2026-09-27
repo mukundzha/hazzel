@@ -1,4 +1,3 @@
-import concurrent.futures
 import json
 
 from hazzel import config
@@ -106,6 +105,32 @@ def _normalize_response_tools(response):
     return response
 
 
+# Errors that dropping `stream=True` can never fix. Retrying them without
+# streaming just burns a second full request (and doubles the latency of an
+# already-failing call), so they go straight back to the caller.
+_HOPELESS_ERROR_MARKERS = (
+    "401",
+    "403",
+    "invalid_api_key",
+    "incorrect api key",
+    "unauthorized",
+    "authentication",
+    "permission denied",
+    "forbidden",
+    "model_not_found",
+    "does not exist or you do not have access",
+    "404",
+)
+
+
+def _is_hopeless_stream_error(error):
+    text = str(error).lower()
+    if not any(marker in text for marker in _HOPELESS_ERROR_MARKERS):
+        return False
+    # A 4xx that explicitly blames streaming is still fixable by dropping it.
+    return not any(marker in text for marker in ("stream", "sse", "event_source"))
+
+
 def _safe_stream_chat(provider, task_messages, tools, think=False):
     try:
         ui.begin_stream()
@@ -124,7 +149,9 @@ def _safe_stream_chat(provider, task_messages, tools, think=False):
                 pass
     except KeyboardInterrupt:
         raise
-    except Exception:
+    except Exception as error:
+        if _is_hopeless_stream_error(error):
+            raise
         return _safe_chat(provider, task_messages, tools, think=think)
     _normalize_response_tools(response)
     if ui.was_thinking_streamed():
@@ -269,7 +296,6 @@ def run(messages, user_input):
     stall_count = 0
     nudged = False
     inspect_streak = 0
-    nudged_act = False
 
     for _ in range(MAX_ITERATIONS):
         if not response.tool_calls:
@@ -332,31 +358,48 @@ def run(messages, user_input):
                     ui.show_loader(f"Working… · {len(todo)} parallel")
                 except Exception:
                     pass
-                with concurrent.futures.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="hazzel-tool") as pool:
-                    future_map = {pool.submit(_run_one_tool, j["tool"], j["args"]): j for j in todo}
-                    try:
-                        for fut in concurrent.futures.as_completed(future_map):
-                            job = future_map[fut]
-                            try:
-                                raw, elapsed = fut.result(timeout=PARALLEL_TOOL_TIMEOUT)
-                            except concurrent.futures.TimeoutError:
-                                raw, elapsed = f"Tool timed out after {PARALLEL_TOOL_TIMEOUT:.0f} seconds. Retry with a narrower scope.", PARALLEL_TOOL_TIMEOUT
-                            except KeyboardInterrupt:
-                                for f in future_map:
-                                    f.cancel()
-                                raise
-                            job["result"] = raw
-                            job["elapsed"] = elapsed
-                            fres, fok, fexit = _finalize_result(raw)
-                            job["_final"] = (fres, fok, fexit)
-                            try:
-                                ui.show_tool(job["tool"], job["detail"], success=fok, exit_code=fexit, elapsed=elapsed, result=fres)
-                            except Exception:
-                                pass
-                    except KeyboardInterrupt:
-                        for f in future_map:
-                            f.cancel()
-                        raise
+                # No `with` block: its __exit__ calls shutdown(wait=True), which
+                # blocks on a hung tool long after we reported a timeout. wait()
+                # bounds the batch, and shutdown(wait=False) returns immediately
+                # so one stuck tool can't stall the whole turn.
+                # Deferred: ~19ms of import that only parallel batches need.
+                import concurrent.futures
+
+                pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=workers, thread_name_prefix="hazzel-tool")
+                future_map = {pool.submit(_run_one_tool, j["tool"], j["args"]): j for j in todo}
+                timed_out = (
+                    f"Tool timed out after {PARALLEL_TOOL_TIMEOUT:.0f} seconds. "
+                    "Retry with a narrower scope."
+                )
+                try:
+                    done, _pending = concurrent.futures.wait(
+                        set(future_map), timeout=PARALLEL_TOOL_TIMEOUT)
+                    # Walk `todo` order, not the done-set, so rows stay stable.
+                    for fut in [f for f in future_map if f in done]:
+                        job = future_map[fut]
+                        raw, elapsed = fut.result()
+                        job["result"] = raw
+                        job["elapsed"] = elapsed
+                    for fut in [f for f in future_map if f not in done]:
+                        job = future_map[fut]
+                        fut.cancel()
+                        job["result"] = timed_out
+                        job["elapsed"] = PARALLEL_TOOL_TIMEOUT
+                    for job in todo:
+                        result, success, exit_code = _finalize_result(job["result"])
+                        job["_final"] = (result, success, exit_code)
+                        try:
+                            ui.show_tool(job["tool"], job["detail"], success=success,
+                                         exit_code=exit_code, elapsed=job["elapsed"], result=result)
+                        except Exception:
+                            pass
+                except KeyboardInterrupt:
+                    for f in future_map:
+                        f.cancel()
+                    raise
+                finally:
+                    pool.shutdown(wait=False, cancel_futures=True)
             for job in jobs:
                 if job["cached"] and "result" not in job:
                     job["result"] = "(already in context above; do not re-read)"
@@ -430,13 +473,14 @@ def run(messages, user_input):
                 summary = _build_summary(trace, content, user_input)
                 return content, trace, summary
 
-        only_inspect = bool(round_entries) and all(t.get("tool") in ("list_files", "read_file", "search_files", "git_status", "git_diff") for t in round_entries)
+        only_inspect = bool(round_entries) and all(t.get("tool") in ("list_files", "read_file", "search_files", "glob", "git_status", "git_diff") for t in round_entries)
         if only_inspect:
             inspect_streak += 1
         else:
+            # Every fresh read-only spiral earns its own correction — a one-shot
+            # latch let the model wander until the iteration cap.
             inspect_streak = 0
-        if inspect_streak >= 4 and not nudged_act:
-            nudged_act = True
+        if inspect_streak >= 4:
             inspect_streak = 0
             task_messages.append({
                 "role": "user",

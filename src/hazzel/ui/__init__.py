@@ -15,158 +15,77 @@ Map (each module owns one concern, shared mutable state lives in _state):
 
 ``from hazzel import ui`` keeps working — this package re-exports every
 public name the old module had.
+
+Submodules load on first attribute access. ``rich`` costs ~150ms to import
+and the whole package exists to draw with it, so `hazzel --version` and
+`hazzel -p` never pay for a terminal renderer they don't draw on.
 """
 
 # ruff: noqa: F401 — re-export shim, every import is part of the ui API.
+import importlib as _importlib
 import sys as _sys
 from types import ModuleType as _ModuleType
 
-from . import _state as _st
-from ._state import (
-    DIM_COLOR,
-    ERROR_COLOR,
-    HAZZEL_COLOR,
-    SUCCESS_COLOR,
-    USER_COLOR,
-    HazzelConsole,
-    is_no_color,
-)
-from .input import (
-    MAX_BUFFER_CHARS,
-    MAX_BUFFER_LINES,
-    MAX_DIFF_DISPLAY_LINES,
-    MAX_PASTE_CHARS,
-    MAX_PASTE_LINES,
-    MENTION_COLOR,
-    MENTION_RESET,
-    SLASH_COMMANDS,
-    VIEW_MAX_LINES,
-    _accept_mention,
-    _active_mention,
-    _all_project_files,
-    _clip_paste,
-    _file_cache,
-    _filter_slash_commands,
-    _fuzzy_score,
-    _highlight_mentions,
-    _hw,
-    _is_tty,
-    _mention_candidates,
-    _read_key,
-    _rule_ansi,
-    _short_path,
-    _show_header,
-    _skill_candidates,
-    _visible_len,
-    _visual_rows,
-    _win_input,
-    _win_redraw,
-    get_input,
-    rule,
-    show_welcome,
-)
-from .git import (
-    _GIT_STATUS_ICONS,
-    _LOG_LINE_RE,
-    _LOG_SUBJECT_RE,
-    _LOG_TYPE_COLORS,
-    _count_diff_marks,
-    _style_log_refs,
-    _style_log_subject,
-    prompt_diff_selection,
-    prompt_suggest_action,
-    prompt_suggest_edit,
-    show_diff,
-    show_file_viewer,
-    show_git_commit,
-    show_git_diff,
-    show_git_file_diff,
-    show_git_file_list,
-    show_git_log,
-    show_git_status,
-    show_git_suggest,
-    show_review,
-)
-from .help_docs import (
-    _HELP_FOOT,
-    _HELP_INTRO,
-    _HELP_SECTIONS,
-    _STAR_LINE,
-    _doc_line,
-    _help_table,
-    _print_help_inline,
-    _show_help_tab,
-    show_docs,
-    show_help,
-)
-from .messages import (
-    _format_elapsed,
-    _format_result_preview,
-    _PREVIEW_MAX_CHARS,
-    _PREVIEW_MAX_LINES,
-    _relativize_detail,
-    _short_detail,
-    _split_preview_rows,
-    confirm,
-    format_context_meter,
-    format_context_plain,
-    prompt_goal_criteria,
-    show_cleared,
-    show_copied,
-    show_error,
-    show_export,
-    show_hazzel_message,
-    show_history,
-    show_model_selected,
-    show_reasoning,
-    show_summary,
-    show_tool,
-    show_undo,
-    show_redo,
-    show_undo_preview,
-    show_user_command,
-)
-from .selectors import (
-    _mask_key,
-    prompt_api_key,
-    select_model,
-    select_skill,
-    show_logout,
-    show_skill_detail,
-    show_skills,
-)
-from .usage import (
-    _print_usage_inline,
-    _show_usage_tab,
-    _usage_body,
-    show_budget_warning,
-    show_by_model,
-    show_turn_usage,
-    show_usage,
-    show_usage_range,
-)
-from .stream import (
-    _live_body,
-    _live_reasoning,
-    _pause_loader,
-    _render_reasoning,
-    _resume_loader,
-    begin_stream,
-    begin_turn,
-    end_stream,
-    end_turn,
-    hide_loader,
-    is_print_mode,
-    is_quiet,
-    push_reasoning_token,
-    push_stream_token,
-    set_auto_approve,
-    set_print_mode,
-    set_quiet,
-    show_loader,
-    stream_stats,
-    was_thinking_streamed,
-)
+# public name -> submodule that defines it
+_EXPORTS = {
+    "DIM_COLOR": "_state", "ERROR_COLOR": "_state", "HAZZEL_COLOR": "_state",
+    "SUCCESS_COLOR": "_state", "USER_COLOR": "_state", "HazzelConsole": "_state",
+    "is_no_color": "_state",
+
+    "MAX_BUFFER_CHARS": "input", "MAX_BUFFER_LINES": "input",
+    "MAX_DIFF_DISPLAY_LINES": "input", "MAX_PASTE_CHARS": "input",
+    "MAX_PASTE_LINES": "input", "MENTION_COLOR": "input", "MENTION_RESET": "input",
+    "SLASH_COMMANDS": "input", "VIEW_MAX_LINES": "input", "_accept_mention": "input",
+    "_active_mention": "input", "_all_project_files": "input", "_clip_paste": "input",
+    "_file_cache": "input", "_filter_slash_commands": "input", "_fuzzy_score": "input",
+    "_highlight_mentions": "input", "_hw": "input", "_is_tty": "input",
+    "_mention_candidates": "input", "_read_key": "input", "_rule_ansi": "input",
+    "_short_path": "input", "_show_header": "input", "_skill_candidates": "input",
+    "_visible_len": "input", "_visual_rows": "input", "_win_input": "input",
+    "_win_redraw": "input", "get_input": "input", "rule": "input", "show_welcome": "input",
+
+    "_GIT_STATUS_ICONS": "git", "_LOG_LINE_RE": "git", "_LOG_SUBJECT_RE": "git",
+    "_LOG_TYPE_COLORS": "git", "_count_diff_marks": "git", "_style_log_refs": "git",
+    "_style_log_subject": "git", "prompt_diff_selection": "git",
+    "prompt_suggest_action": "git", "prompt_suggest_edit": "git", "show_diff": "git",
+    "show_file_viewer": "git", "show_git_commit": "git", "show_git_diff": "git",
+    "show_git_file_diff": "git", "show_git_file_list": "git", "show_git_log": "git",
+    "show_git_status": "git", "show_git_suggest": "git", "show_review": "git",
+
+    "_HELP_FOOT": "help_docs", "_HELP_INTRO": "help_docs", "_HELP_SECTIONS": "help_docs",
+    "_STAR_LINE": "help_docs", "_doc_line": "help_docs", "_help_table": "help_docs",
+    "_print_help_inline": "help_docs", "_show_help_tab": "help_docs",
+    "show_docs": "help_docs", "show_help": "help_docs",
+
+    "_format_elapsed": "messages", "_format_result_preview": "messages",
+    "_PREVIEW_MAX_CHARS": "messages", "_PREVIEW_MAX_LINES": "messages",
+    "_relativize_detail": "messages", "_short_detail": "messages",
+    "_split_preview_rows": "messages", "confirm": "messages", "format_context_meter": "messages",
+    "format_context_plain": "messages", "prompt_goal_criteria": "messages",
+    "show_cleared": "messages", "show_copied": "messages", "show_error": "messages",
+    "show_export": "messages", "show_hazzel_message": "messages", "show_history": "messages",
+    "show_model_selected": "messages", "show_reasoning": "messages", "show_summary": "messages",
+    "show_tool": "messages", "show_undo": "messages", "show_redo": "messages",
+    "show_undo_preview": "messages", "show_user_command": "messages",
+
+    "_mask_key": "selectors", "prompt_api_key": "selectors", "select_model": "selectors",
+    "select_skill": "selectors", "show_logout": "selectors", "show_skill_detail": "selectors",
+    "show_skills": "selectors",
+
+    "_print_usage_inline": "usage", "_show_usage_tab": "usage", "_usage_body": "usage",
+    "show_budget_warning": "usage", "show_by_model": "usage", "show_turn_usage": "usage",
+    "show_usage": "usage", "show_usage_range": "usage",
+
+    "_live_body": "stream", "_live_reasoning": "stream", "_pause_loader": "stream",
+    "_render_reasoning": "stream", "_resume_loader": "stream", "begin_stream": "stream",
+    "begin_turn": "stream", "end_stream": "stream", "end_turn": "stream",
+    "hide_loader": "stream", "is_print_mode": "stream", "is_quiet": "stream",
+    "push_reasoning_token": "stream", "push_stream_token": "stream",
+    "set_auto_approve": "stream", "set_print_mode": "stream", "set_quiet": "stream",
+    "show_loader": "stream", "stream_stats": "stream", "was_thinking_streamed": "stream",
+}
+
+_LOADED = set()
 
 # Mutable globals live in _state. They are NOT copied into this package's
 # __dict__ (that would go stale); instead attribute access is proxied so
@@ -193,14 +112,26 @@ _STATE_NAMES = frozenset(
 )
 
 
+def _load(module_name):
+    if module_name not in _LOADED:
+        _LOADED.add(module_name)
+        _importlib.import_module(f".{module_name}", __name__)
+    return _sys.modules[f"{__name__}.{module_name}"]
+
+
 def __getattr__(name: str):
     if name in _STATE_NAMES:
-        return getattr(_st, name)
+        return getattr(_load("_state"), name)
+    origin = _EXPORTS.get(name)
+    if origin is not None:
+        value = getattr(_load(origin), name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__():
-    return sorted(list(globals().keys()) + list(_STATE_NAMES))
+    return sorted(set(globals()) | set(_EXPORTS) | _STATE_NAMES)
 
 
 class _UIModule(_ModuleType):
@@ -208,7 +139,7 @@ class _UIModule(_ModuleType):
 
     def __setattr__(self, name, value):
         if name in _STATE_NAMES:
-            setattr(_st, name, value)
+            setattr(_load("_state"), name, value)
         super().__setattr__(name, value)
 
 

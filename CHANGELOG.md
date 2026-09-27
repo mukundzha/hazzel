@@ -6,12 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Added
 - `glob` tool: find files by path pattern (`**/*.py`, `src/**/test_*.py`, `**/*.{json,toml}`) with `*`/`**`/`?`/`[a-z]`/`{a,b}` support. Read-only, plan-mode safe, parallel-safe, TTL-cached and invalidated by file writes. Results are project-relative with `/` separators, capped at 100 matches, and a trailing `/` in the pattern matches directories only. Fills the gap where `list_files` was single-level and `search_files` only greps contents.
-
-### Changed
-- `list_files` overflow hint now points at `glob` as well as `search_files`.
+- Zero-LLM fast paths for lookup-shaped requests: "find all *.py files", "find test_*.py files in tests", `grep "x" in src`, and "search the web for X" are now answered locally instead of spending a model round trip. Anything with a question word, conjunction, or pronoun still falls through to the model.
+- Transient-failure retry: 5xx, timeouts, and dropped connections get one short jittered retry instead of failing the whole turn. `Retry-After` is honored verbatim when a provider sends it; rate-limit backoff is now jittered so parallel clients don't retry in lockstep.
 
 ### Fixed
-- README test badge corrected to the real count (319 → 368).
+- A bad API key or unknown model no longer costs two full requests. The stream → non-stream fallback fired on *every* exception, so an unrecoverable 401/403/404 was re-issued identically before erroring. Streaming-specific errors still fall back, since dropping `stream=True` genuinely fixes those.
+- The parallel tool batch no longer blocks past its own timeout. The executor's `with` block called `shutdown(wait=True)` on exit, so a hung tool stalled the turn indefinitely *after* the model had already been told it timed out. Batches now use `wait(timeout=)` plus `shutdown(wait=False, cancel_futures=True)`.
+- `jobs(action=wait)` longer than 15s no longer joins a parallel batch — a 120s wait inside a 60s budget reported a bogus timeout for every sibling tool.
+- The in-turn token budget now also distills assistant `tool_calls` arguments. Only `role: tool` results were shrunk, so an 8k `write_file` body or a 10-edit `apply_edits` list accumulated unbounded and was re-sent on every later iteration of the same turn.
+- The explore-then-act nudge fires once per read-only spiral instead of once per turn, so a second spiral gets corrected too rather than running to the iteration cap.
+
+### Changed
+- `hazzel/ui/` loads its submodules on first attribute access, and `__main__.console` is a lazy proxy. `rich` (~150ms) is no longer imported for `hazzel --version` or `--help` — full CLI import is ~120ms faster. Resolving the console per call also keeps `ui.console` monkeypatching effective, which a captured reference had broken.
+- `concurrent.futures` is imported only when a parallel batch actually runs.
+- Tool schema trimmed (5937 → 5652 bytes; 2283 → 2212 tokens per request) by cutting prose from the five longest descriptions.
+- `list_files` overflow hint now points at `glob` as well as `search_files`.
+- README test badge corrected to the real count (319 → 407).
 
 ## [1.6.0] - 2026-09-25
 ### Added

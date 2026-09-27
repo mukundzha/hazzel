@@ -104,7 +104,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "glob",
-            "description": "Find files by path pattern, e.g. '**/*.py', 'src/**/test_*.py', '**/*.{json,toml}'. Read-only, returns paths sorted. Use this to locate files by name — search_files only greps contents. Patterns match from the search root, so '**/' is needed to recurse; a trailing '/' matches directories only.",
+            "description": "Find files by path pattern, e.g. '**/*.py', 'src/**/test_*.py', '**/*.{json,toml}'. Read-only, sorted paths. Locates files by name — search_files only greps contents. Patterns match from the search root, so '**/' recurses; a trailing '/' matches directories only.",
             "parameters": {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}}, "required": ["pattern"]},
         },
     },
@@ -136,7 +136,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Run a shell command from the project root. Read-only cmds run without approval; all else asks. Optional timeout (1-120s), cwd (project-relative dir), description. Pass background=true to run detached (dev servers, test suites) and poll it with the jobs tool. Large output is truncated with full log to tmp.",
+            "description": "Run a shell command from the project root. Read-only cmds run without approval; all else asks. timeout 1-120s (default 30), cwd is project-relative. background=true detaches it — poll with jobs. Big output is truncated, full log to tmp.",
             "parameters": {"type": "object", "properties": {"command": {"type": "string"}, "timeout": {"type": "number"}, "cwd": {"type": "string"}, "description": {"type": "string"}, "background": {"type": "boolean"}}, "required": ["command"]},
         },
     },
@@ -144,7 +144,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "jobs",
-            "description": "Manage background shell jobs started with run_command(background=true). list shows every job and state (read-only); poll returns the latest output tail for one job (read-only); wait blocks until one job finishes or timeout seconds pass (read-only, default 30, max 120) — prefer wait over repeated polls; clear drops finished jobs; kill stops one job.",
+            "description": "Background jobs from run_command(background=true). list/poll are read-only; wait blocks until done or timeout (default 30, max 120) — prefer wait over polling; clear drops finished; kill stops one.",
             "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "job_id": {"type": "integer"}, "limit": {"type": "integer"}, "timeout": {"type": "number"}}},
         },
     },
@@ -184,7 +184,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "fetch_url",
-            "description": "Read public http(s) URLs (docs, references, changelogs). Read-only, accepts one url or up to 5 urls, returns condensed relevant sentences up to max_chars. Always pass the user's question as query.",
+            "description": "Read public http(s) URLs (docs, references, changelogs). Read-only, one url or up to 5, condensed relevant sentences up to max_chars. Always pass the user's question as query.",
             "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "urls": {"type": "array", "items": {"type": "string"}}, "max_chars": {"type": "integer"}, "query": {"type": "string"}}},
         },
     },
@@ -200,7 +200,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "mcp",
-            "description": "Use configured external MCP servers. list discovers servers/tools (read-only); call runs one server tool with arguments. Configure in .hazzel/mcp.json.",
+            "description": "Use configured external MCP servers. list discovers servers/tools (read-only); call runs one server tool. Configure in .hazzel/mcp.json.",
             "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "server": {"type": "string"}, "tool": {"type": "string"}, "arguments": {"type": "object"}}},
         },
     },
@@ -237,3 +237,7 @@ PRINT_BLOCKED_MESSAGE = (
 PARALLEL_SAFE = frozenset({"list_files", "read_file", "search_files", "glob", "git_status", "git_diff", "web_search", "fetch_url", "skill", "jobs"})
 PARALLEL_MAX_WORKERS = 8
 PARALLEL_TOOL_TIMEOUT = 60.0
+
+# Longest jobs(action=wait) still allowed inside a parallel batch; a longer
+# wait would blow the shared PARALLEL_TOOL_TIMEOUT and stall every sibling.
+PARALLEL_SAFE_JOB_WAIT = 15.0

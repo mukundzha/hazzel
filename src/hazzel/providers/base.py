@@ -1,3 +1,4 @@
+import random
 import time
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -5,6 +6,13 @@ from abc import ABC, abstractmethod
 
 RATE_LIMIT_ATTEMPTS = 3
 RATE_LIMIT_DELAYS = (2.0, 4.0)
+
+# One extra attempt, short and jittered, for failures a provider almost always
+# recovers from on its own. Cheaper than failing a whole turn and making the
+# user retype the request.
+TRANSIENT_ATTEMPTS = 2
+TRANSIENT_BASE_DELAY = 0.6
+TRANSIENT_MAX_DELAY = 4.0
 
 
 def is_rate_limit_error(error):
@@ -24,6 +32,47 @@ def is_rate_limit_error(error):
     ])
 
 
+def is_transient_error(error):
+    """5xx, timeouts, and dropped connections — worth one more shot."""
+    text = str(error).lower()
+    if is_rate_limit_error(error):
+        return False
+    if any(k in text for k in [
+        "500", "502", "503", "504", "529",
+        "internal server error", "bad gateway", "service unavailable",
+        "gateway timeout", "remote end closed", "server disconnected",
+        "connection reset", "connection aborted", "connection refused",
+        "broken pipe", "timed out", "timeout", "eof occurred",
+    ]):
+        return True
+    return isinstance(error, (TimeoutError, ConnectionError))
+
+
+def _retry_after_seconds(error):
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return None
+    try:
+        raw = headers.get("retry-after") or headers.get("Retry-After")
+    except Exception:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def _sleep_with_jitter(base):
+    # Full jitter: spreads a thundering herd of parallel/retrying clients.
+    try:
+        time.sleep(random.uniform(base * 0.5, min(base * 1.5, TRANSIENT_MAX_DELAY)))
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        pass
+
+
 def rate_limit_message(provider_name):
     return (
         f"Rate limit reached on {provider_name} — requests are throttled, nothing is broken. "
@@ -32,20 +81,46 @@ def rate_limit_message(provider_name):
 
 
 def call_with_backoff(provider_name, fn, attempts=RATE_LIMIT_ATTEMPTS):
+    """Every provider call goes through here.
+
+    Rate limits get the long, patient backoff (the wait is the fix). 5xx and
+    dropped connections get one short jittered retry — cheap insurance that
+    turns a failed turn into a slightly slower successful one.
+    """
     last = None
+    transient_left = TRANSIENT_ATTEMPTS - 1
     for i in range(max(1, attempts)):
         try:
             return fn()
+        except KeyboardInterrupt:
+            raise
         except Exception as error:
-            if not is_rate_limit_error(error):
+            retry_after = _retry_after_seconds(error)
+            if is_rate_limit_error(error):
+                last = error
+                if i >= attempts - 1:
+                    break
+                backoff = RATE_LIMIT_DELAYS[min(i, len(RATE_LIMIT_DELAYS) - 1)]
+            elif is_transient_error(error) and transient_left > 0:
+                last = error
+                transient_left -= 1
+                backoff = TRANSIENT_BASE_DELAY * (2 ** (TRANSIENT_ATTEMPTS - 1 - transient_left))
+            else:
                 raise
-            last = error
-            if i < attempts - 1:
+            if retry_after is not None:
+                # The server named a delay — take it verbatim, no jitter.
                 try:
-                    time.sleep(RATE_LIMIT_DELAYS[min(i, len(RATE_LIMIT_DELAYS) - 1)])
+                    time.sleep(retry_after)
+                except KeyboardInterrupt:
+                    raise
                 except Exception:
                     pass
-    raise RuntimeError(rate_limit_message(provider_name)) from last
+            else:
+                # Jitter keeps a herd of clients from retrying in lockstep.
+                _sleep_with_jitter(backoff)
+    if last is not None and is_rate_limit_error(last):
+        raise RuntimeError(rate_limit_message(provider_name)) from last
+    raise last
 
 
 @dataclass

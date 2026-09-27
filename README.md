@@ -13,7 +13,7 @@
   <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>&nbsp;
   <a href="https://pypi.org/project/hazzel/"><img src="https://img.shields.io/pypi/v/hazzel?cacheSeconds=3600" alt="PyPI"></a>&nbsp;
   <a href="https://pypistats.org/packages/hazzel"><img src="https://img.shields.io/badge/downloads-4.3k%2Fmonth-blue" alt="Downloads"></a>&nbsp;
-  <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-368%20passing-brightgreen" alt="Tests"></a>&nbsp;
+  <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-407%20passing-brightgreen" alt="Tests"></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-green" alt="License"></a>&nbsp;
   <a href="https://github.com/mukundzha/hazzel/stargazers"><img src="https://img.shields.io/github/stars/mukundzha/hazzel?style=social" alt="Stars"></a>
 </p>
@@ -99,7 +99,7 @@ Aider is excellent — this is about fit, not superiority.
 
 | What | In practice |
 | ---- | ----------- |
-| Understands your repo | Reads, searches, lists, and globs by name (`**/*.py`, `**/*.{json,toml}`). `@path` pins a file into context; `/init` drafts an `AGENTS.md` map so every session starts oriented. |
+| Understands your repo | Reads, searches, lists, and globs by name (`**/*.py`, `**/*.{json,toml}`). Lookups like "find all test files" answer locally with no model round trip. `@path` pins a file into context; `/init` drafts an `AGENTS.md` map so every session starts oriented. |
 | Ships real changes | Diff-preview editing, `/undo` checkpoints, shell with timeouts, `!cmd &` background jobs via `/jobs`, `fetch <url>` for docs, `@image.png` for vision-capable models. |
 | Speaks fluent git | `/status` · `/diff --staged` · `/review` · `/commit` (auto-drafted Conventional message) · `/log` — reads run instantly, zero LLM round-trip. |
 | Extends without lock-in | Minimal MCP stdio client — standard library only, any server via `.hazzel/mcp.json`. `SKILL.md` skills load on demand. Neither needs Hazzel-specific tooling to author. |

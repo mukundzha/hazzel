@@ -113,6 +113,165 @@ def _fast_list(messages, user_input, target):
     return _fast_reply(messages, user_input, str(result), _fast_trace("list_files", target, str(result), success))
 
 
+def _text_result(tool, detail, args, bad_prefixes):
+    result = run_tool(tool, args)
+    if isinstance(result, list):
+        result = "\n".join(result)
+    result = str(result)
+    if not result:
+        result = "(no results)"
+    success = not result.lower().startswith(bad_prefixes)
+    return result, success
+
+
+_LIST_BAD = ("path does not exist", "path is not", "path is outside", "usage:")
+_SEARCH_BAD = ("no matches", "invalid regex", "search pattern is required", "tool error")
+
+
+def _fast_glob(messages, user_input, pattern, path="."):
+    result, success = _text_result("glob", pattern, {"pattern": pattern, "path": path}, _LIST_BAD)
+    reply = result if success else result
+    return _fast_reply(messages, user_input, reply, _fast_trace("glob", pattern, result, success))
+
+
+def _fast_search(messages, user_input, pattern, path=".", regex=False):
+    detail = pattern if path == "." else f"{pattern} in {path}"
+    result, success = _text_result("search_files", detail,
+                                   {"pattern": pattern, "path": path, "regex": regex}, _SEARCH_BAD)
+    return _fast_reply(messages, user_input, result, _fast_trace("search_files", detail, result, success))
+
+
+def _fast_web(messages, user_input, query, count=5):
+    result, success = _text_result("web_search", query, {"query": query, "count": count},
+                                   ("no results", "search failed", "tool error"))
+    return _fast_reply(messages, user_input, result, _fast_trace("web_search", query, result, success))
+
+
+_GLOB_TAIL = re.compile(
+    r"^\s*(?:please\s+|now\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:find|locate|look\s+for|search\s+for|list|show|glob|where\s+is|where\s+are)\s+"
+    r"(?:me\s+|all\s+|every\s+|the\s+)?"
+    r"(?P<what>(?:all\s+|every\s+)?[\w.*{}\[\]?/-]+?)\s*"
+    r"(?:files?|paths?|dirs?|directories)\s+"
+    r"(?:in|under|inside|at|within|of|from)\s+(?P<path>[\w./*-]+)\s*"
+    r"(?:please)?[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
+_GLOB_SIMPLE = re.compile(
+    r"^\s*(?:please\s+|now\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:find|locate|look\s+for|search\s+for|glob|list|show|give\s+me)\s+"
+    r"(?:me\s+|all\s+|every\s+|the\s+)?"
+    r"(?P<pattern>[\w.*{}\[\]?/-]*\*[\w.*{}\[\]?/-]*)"
+    r"(?:\s+(?:files?|paths?|dirs?|directories))?"
+    r"\s*[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
+_GREP_TAIL = re.compile(
+    r"^\s*(?:please\s+|now\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:grep|search)\s+"
+    r"(?:for\s+)?(?P<pattern>[\"'].*?[\"']|\S.*?)\s+"
+    r"(?:in|under|inside|at|within|across|from)\s+(?P<path>[\w./*-]+)\s*"
+    r"(?:please)?[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
+_GREP_SIMPLE = re.compile(
+    r"^\s*(?:please\s+|now\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:grep|search(?:\s+for)?)\s+"
+    r"(?P<pattern>[\"'].*?[\"']|\S+)\s*[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
+_WEB = re.compile(
+    r"^\s*(?:please\s+|now\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:web\s*-?\s*search|search\s+the\s+(?:web|internet)|google|look\s+up)\s+"
+    r"(?:for\s+)?(?P<query>.+?)\s*[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
+# Words that mean "go reason about this", not "run this one tool". Note the
+# absence of domain nouns like "test": the patterns below already require a
+# concrete glob pattern or quoted string, so "tests" as a *path* must not block.
+_NOT_A_TOOL_TASK = frozenset({
+    "why", "how", "what", "when", "where", "who", "which", "should", "could", "would",
+    "explain", "fix", "make", "write", "add", "remove", "update", "refactor", "implement",
+    "bug", "error", "failing",
+    "it", "this", "that", "them", "these",
+    "and", "then", "if", "so", "because", "but", "does", "do", "is", "are",
+})
+
+
+def _clean_token(token):
+    token = (token or "").strip().strip("\"'`").rstrip(".!?;:,")
+    return token.strip()
+
+
+def _maybe_fast_lookup(messages, user_input, text, low):
+    """glob / search_files / web_search without spending a model call.
+
+    Only fires on a single concrete target: one pattern, one path, or one query.
+    Anything with a question word, a conjunction, or a pronoun falls through to
+    the model, which is what actually needs to reason.
+    """
+    tokens = [t for t in re.split(r"[\s,]+", low) if t]
+    if not tokens or len(tokens) > 12:
+        return None
+    if _NOT_A_TOOL_TASK & set(tokens):
+        return None
+
+    match = _WEB.match(text)
+    if match:
+        query = _clean_token(match.group("query"))
+        if query and len(query) > 2:
+            return _fast_web(messages, user_input, query)
+
+    match = _GLOB_TAIL.match(text)
+    if match:
+        pattern = _clean_token(match.group("what"))
+        path = _clean_token(match.group("path")).rstrip("/") or "."
+        if _plausible_pattern(pattern) and not _path_looks_like_pattern(path):
+            return _fast_glob(messages, user_input, pattern, path)
+
+    match = _GLOB_SIMPLE.match(text)
+    if match:
+        pattern = _clean_token(match.group("pattern"))
+        if _plausible_pattern(pattern):
+            return _fast_glob(messages, user_input, pattern, ".")
+
+    match = _GREP_TAIL.match(text)
+    if match:
+        pattern = _clean_token(match.group("pattern"))
+        path = _clean_token(match.group("path")).rstrip("/") or "."
+        if pattern and len(pattern) > 1 and not _path_looks_like_pattern(path):
+            return _fast_search(messages, user_input, pattern, path)
+
+    match = _GREP_SIMPLE.match(text)
+    if match:
+        pattern = _clean_token(match.group("pattern"))
+        # "search for X" with no path only makes sense as a filename pattern;
+        # a bare word is far more likely to be a task than a grep.
+        if pattern and ("*" in pattern or "?" in pattern):
+            return _fast_glob(messages, user_input, pattern, ".")
+        if pattern and len(pattern) > 2 and " " in pattern:
+            return _fast_search(messages, user_input, pattern, ".")
+
+    return None
+
+
+def _plausible_pattern(pattern):
+    if not pattern or len(pattern) < 2:
+        return False
+    if pattern.startswith("-"):
+        return False
+    return any(ch in pattern for ch in "*.?[]{}") or "/" in pattern
+
+
+def _path_looks_like_pattern(path):
+    return any(ch in path for ch in "*?[]{}")
+
+
 _PKG_RE = re.compile(r"^[A-Za-z0-9_.\-]+(\[[A-Za-z0-9_,.\-]+\])?(==[A-Za-z0-9_.\-]+)?$")
 _PKG_CONNECTORS = frozenset({"and", "with", "plus", "&", "+", "package", "packages", "library", "libraries", "module", "modules"})
 
@@ -277,4 +436,5 @@ def try_fast_path(messages, user_input):
             first = command.split()[0].lower() if command.split() else ""
             if first in ("python", "python3", "pytest", "pip", "npm", "npx", "node", "cargo", "go", "make", "git", "ls", "ruff"):
                 return _fast_run(messages, user_input, command)
-    return None
+
+    return _maybe_fast_lookup(messages, user_input, text, low)

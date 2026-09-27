@@ -159,6 +159,37 @@ def context_usage(messages=None):
     return max(int(live or 0), burned, 0), window
 
 
+_DISTILL_FLOOR = 350
+_DISTILL_KEEP = 280
+
+
+def _distill_tool_call_args(message):
+    """Shrink the argument payload of an already-executed tool call.
+
+    The tool result is what the model reads; the arguments it already ran are
+    just an echo. An 8k write_file body or a 10-edit apply_edits list is pure
+    latency on every later iteration of the same turn.
+    """
+    calls = message.get("tool_calls")
+    if not isinstance(calls, list):
+        return False
+    shrunk = False
+    for call in calls:
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function")
+        if not isinstance(function, dict):
+            continue
+        arguments = function.get("arguments")
+        if not isinstance(arguments, str) or len(arguments) <= _DISTILL_FLOOR:
+            continue
+        if "…distilled…" in arguments:
+            continue
+        function["arguments"] = arguments[:_DISTILL_KEEP] + "…distilled…"
+        shrunk = True
+    return shrunk
+
+
 def _enforce_turn_budget(task_messages):
     def _msg_len(m):
         try:
@@ -168,13 +199,33 @@ def _enforce_turn_budget(task_messages):
         except Exception:
             c = m.get("content") or ""
             return len(c) if isinstance(c, str) else len(str(c))
-    while sum(_msg_len(m) for m in task_messages) // 4 > TURN_TOKEN_BUDGET:
+
+    def _payload_len(m):
+        # Arguments aren't in `content`, so count them explicitly.
+        total = 0
+        for call in m.get("tool_calls") or []:
+            if isinstance(call, dict):
+                function = call.get("function")
+                if isinstance(function, dict):
+                    total += len(str(function.get("arguments") or ""))
+        return total
+
+    def _total():
+        return sum(_msg_len(m) + _payload_len(m) for m in task_messages) // 4
+
+    while _total() > TURN_TOKEN_BUDGET:
         distilled = False
         for m in task_messages:
             if m.get("role") == "tool":
                 content = m.get("content") or ""
-                if len(content) > 350 and "…distilled…" not in content:
-                    m["content"] = content[:280] + "\n[…distilled…]"
+                if len(content) > _DISTILL_FLOOR and "…distilled…" not in content:
+                    m["content"] = content[:_DISTILL_KEEP] + "\n[…distilled…]"
+                    distilled = True
+                    break
+        if not distilled:
+            # Nothing left to shrink in results — go after the echoed arguments.
+            for m in task_messages:
+                if _distill_tool_call_args(m):
                     distilled = True
                     break
         if not distilled:
