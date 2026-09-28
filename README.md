@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/hazzel/"><img src="https://img.shields.io/pypi/v/hazzel?cacheSeconds=3600" alt="PyPI"></a>&nbsp;
   <a href="https://pypistats.org/packages/hazzel"><img src="https://img.shields.io/badge/downloads-4.3k%2Fmonth-blue" alt="Downloads"></a>&nbsp;
   <a href="https://github.com/mukundzha/hazzel/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-407%20passing-brightgreen" alt="Tests"></a>&nbsp;
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-green" alt="License"></a>&nbsp;
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>&nbsp;
   <a href="https://github.com/mukundzha/hazzel/stargazers"><img src="https://img.shields.io/github/stars/mukundzha/hazzel?style=social" alt="Stars"></a>
 </p>
 
@@ -195,9 +195,7 @@ Issues and PRs genuinely welcome — [ROADMAP.md](ROADMAP.md) tracks what's next
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE).
-
-Why AGPL? It keeps hosted clones open — if you run Hazzel as a service, share your changes back. Normal use (install it, use it at work, ship code it helped you write) is unaffected — only re-hosting Hazzel itself triggers share-alike. If the license blocks adoption at your company, [open an issue](https://github.com/mukundzha/hazzel/issues/new?template=feature_request.md) — dual-licensing is on the table with enough demand.
+Apache-2.0. See [LICENSE](LICENSE).
 
 <p align="center">
   <sub>Small tools stay small because people who find them useful say so.<br/>

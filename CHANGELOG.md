@@ -17,6 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The explore-then-act nudge fires once per read-only spiral instead of once per turn, so a second spiral gets corrected too rather than running to the iteration cap.
 
 ### Changed
+- License switched from `AGPL-3.0-or-later` to `Apache-2.0` for enterprise adoption (patent grant, procurement-friendly). Requires consent from prior AGPL contributors before release — do not publish a release until each contributor has agreed.
 - `hazzel/ui/` loads its submodules on first attribute access, and `__main__.console` is a lazy proxy. `rich` (~150ms) is no longer imported for `hazzel --version` or `--help` — full CLI import is ~120ms faster. Resolving the console per call also keeps `ui.console` monkeypatching effective, which a captured reference had broken.
 - `concurrent.futures` is imported only when a parallel batch actually runs.
 - Tool schema trimmed (5937 → 5652 bytes; 2283 → 2212 tokens per request) by cutting prose from the five longest descriptions.

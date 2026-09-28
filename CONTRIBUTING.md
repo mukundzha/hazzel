@@ -44,5 +44,5 @@ Open an [issue](https://github.com/mukundzha/hazzel/issues) with:
 
 ## License
 
-By contributing, you agree your work is licensed under [AGPL-3.0-or-later](LICENSE).
+By contributing, you agree your work is licensed under [Apache-2.0](LICENSE).
 

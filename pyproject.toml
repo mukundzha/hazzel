@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "A small terminal coding agent — bring your own keys (Groq, OpenAI, Anthropic, Mistral)."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "AGPL-3.0-or-later"
+license = "Apache-2.0"
 license-files = ["LICENSE*"]
 authors = [{ name = "Mukund Jha" }]
 keywords = ["ai-agent", "coding-agent", "terminal", "cli", "llm", "developer-tools", "groq", "openai", "anthropic", "ollama"]
