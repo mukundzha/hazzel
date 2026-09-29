@@ -148,14 +148,6 @@ If you need a heavier, more automated agent, better options exist. If you want t
 
 If Hazzel is useful, the cheapest support costs nothing — use it, report what breaks, or send a PR. It's free and open-source, and it plans to stay both.
 
-If you'd rather throw money at the problem, that works too. It goes straight into maintainer time for docs, fixes, and reviews:
-
-<p align="center">
-  <a href="https://www.paypal.com/ncp/payment/GV2Z7A68N6N6E">
-    <img src="https://img.shields.io/badge/Donate-PayPal-0070BA?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal">
-  </a>
-</p>
-
 <p align="center">
   <sub>Star history</sub><br/>
   <a href="https://star-history.com/#mukundzha/hazzel&Date">
