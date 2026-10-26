@@ -303,3 +303,53 @@ def test_main_print_empty_exits_2(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         entry.main(["-p", ""])
     assert exc.value.code == EXIT_USAGE
+
+
+@pytest.mark.parametrize("output_format", ["json", "text"])
+@pytest.mark.parametrize(
+    "failure,code,error_text,stderr_text",
+    [
+        ("missing_key", EXIT_USAGE, "No API key", "No API key"),
+        ("exception", EXIT_TURN_FAILED, "Turn failed (kaboom)", "Turn failed (kaboom)"),
+        ("contact", EXIT_TURN_FAILED, "Unable to contact the model", "Unable to contact the model"),
+        ("connection", EXIT_TURN_FAILED, "Unable to connect", "Unable to connect"),
+        ("cancelled", EXIT_CANCELLED, "Cancelled.", "Cancelled."),
+        ("interrupt", EXIT_CANCELLED, "Cancelled.", ""),
+    ],
+)
+def test_run_print_failure_payload(
+    monkeypatch, capsys, output_format, failure, code, error_text, stderr_text
+):
+    monkeypatch.setattr(config, "get_current_provider", lambda: "groq")
+    monkeypatch.setattr(config, "has_any_key", lambda: failure != "missing_key")
+
+    def _fail(messages, prompt):
+        if failure == "missing_key":
+            pytest.fail("a missing key must stop before the provider runs")
+        if failure == "exception":
+            raise RuntimeError("kaboom")
+        if failure == "interrupt":
+            raise KeyboardInterrupt
+        return {
+            "contact": "Unable to contact the model: boom",
+            "connection": "Unable to connect: boom",
+            "cancelled": "cancelled.",
+        }[failure]
+
+    monkeypatch.setattr(agent, "run", _fail)
+    assert run_print("hi", approve=True, output_format=output_format) == code
+    out, err = capsys.readouterr()
+    if output_format == "json":
+        payload = json.loads(out)  # rejects multiple JSON documents / extra stdout
+        assert payload["success"] is False
+        assert payload["exit_code"] == code
+        assert error_text in payload["error"]
+    else:
+        assert out == ""
+    if stderr_text:
+        assert stderr_text in err
+    else:
+        assert err == ""
+    assert not ui.is_print_mode()
+    assert not ui.is_quiet()
+    assert not is_print_readonly()

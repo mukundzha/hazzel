@@ -95,6 +95,16 @@ def _restore_piped_process():
         pass
 
 
+def _print_failure(error, exit_code, output_format):
+    if output_format == "json":
+        payload = {"success": False, "error": error, "exit_code": exit_code}
+        try:
+            sys.stdout.write(json.dumps(payload, indent=2) + "\n")
+        except BrokenPipeError:
+            pass
+    return exit_code
+
+
 def run_print(prompt, approve=False, output_format="text"):
     from hazzel import agent, config, ui
     from hazzel.agent.dispatch import set_print_approvals
@@ -111,16 +121,18 @@ def run_print(prompt, approve=False, output_format="text"):
         except Exception:
             needs_key = False
         if needs_key:
-            sys.stderr.write("No API key — run `hazzel` once and use /model to add one, or set a provider key (e.g. GROQ_API_KEY). Ollama needs no key.\n")
-            return EXIT_USAGE
+            error = "No API key — run `hazzel` once and use /model to add one, or set a provider key (e.g. GROQ_API_KEY). Ollama needs no key."
+            sys.stderr.write(error + "\n")
+            return _print_failure(error, EXIT_USAGE, output_format)
         messages = [{"role": "system", "content": agent.build_system_prompt(config.PROJECT_ROOT)}]
         try:
             result = agent.run(messages, prompt)
         except KeyboardInterrupt:
-            return EXIT_CANCELLED
+            return _print_failure("Cancelled.", EXIT_CANCELLED, output_format)
         except Exception as error:
-            sys.stderr.write(f"Turn failed ({error}). Nothing was changed; try again.\n")
-            return EXIT_TURN_FAILED
+            message = f"Turn failed ({error}). Nothing was changed; try again."
+            sys.stderr.write(message + "\n")
+            return _print_failure(message, EXIT_TURN_FAILED, output_format)
         if isinstance(result, tuple) and len(result) == 3:
             response = result[0]
         else:
@@ -128,11 +140,11 @@ def run_print(prompt, approve=False, output_format="text"):
         response = (response or "").strip() or "(no reply)"
         if response.strip().lower() == "cancelled.":
             sys.stderr.write("Cancelled.\n")
-            return EXIT_CANCELLED
+            return _print_failure("Cancelled.", EXIT_CANCELLED, output_format)
         failed = response.lower().startswith(_CONTACT_FAILURE_PREFIXES)
         if failed:
             sys.stderr.write(response + "\n")
-            return EXIT_TURN_FAILED
+            return _print_failure(response, EXIT_TURN_FAILED, output_format)
         if output_format == "json":
             try:
                 model = config.get_current_display_name()

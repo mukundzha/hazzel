@@ -107,6 +107,14 @@ Aider is excellent — this is about fit, not superiority.
 | Remembers between sessions | Per-project sessions persist with `/session restore`. `/plan on` explores read-only first; `/think on` buys extended reasoning for hard edits. |
 | Works in a pipeline | `hazzel -p "prompt"` runs one turn and exits — pipe a diff in, get a summary out. `--output-format json` + real exit codes for CI. |
 
+In `hazzel -p "prompt" --output-format json`, a successful turn emits
+`{"success": true, "response": "...", "model": "...", "usage": {...}}`.
+A missing API key, failed turn, connection failure or cancellation emits one JSON
+object on stdout: `{"success": false, "error": "...", "exit_code": 2}`.
+The error is non-empty and `exit_code` matches the process status: 1 for a failed
+turn, 2 for a missing key, or 130 for cancellation. Human-readable diagnostics
+remain on stderr; text mode is unchanged.
+
 Worked transcripts of `/review`, `/commit`, `@image`, background jobs, and `hazzel -p` live in [docs/EXAMPLES.md](docs/EXAMPLES.md).
 
 ## Providers — bring your own key, no subscription
