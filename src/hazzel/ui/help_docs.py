@@ -42,6 +42,7 @@ _HELP_SECTIONS = [
         ("/undo", "undo last change, keeps your edits [preview]"),
         ("/redo", "reapply undone change [preview]"),
         ("/logout", "clear saved API keys"),
+        ("/version", "show version + environment"),
         ("/exit", "quit"),
     ]),
     ("Git", [
@@ -99,6 +100,31 @@ def _help_table(rows):
 
 def show_help():
     _print_help_inline()
+
+
+def show_version():
+    """In-session diagnostics: version, Python, model, config path.
+
+    Read-only: no network, no API key, no config writes. The four lines
+    are what a bug report usually asks for, without leaving the session.
+    """
+    import sys
+
+    from hazzel import config as _config
+
+    try:
+        from importlib.metadata import version as _pkg_version
+
+        ver = _pkg_version("hazzel")
+    except Exception:
+        from hazzel import __version__ as ver
+
+    _st.console.print()
+    _st.console.print(Text(f"  Hazzel {ver}", style="white"))
+    _st.console.print(Text(f"  Python {sys.version.split()[0]}", style="dim"))
+    _st.console.print(Text(f"  Model {_config.get_current_display_name()}", style="dim"))
+    _st.console.print(Text(f"  Config {_config.CONFIG_FILE}", style="dim"))
+    _st.console.print()
 
 
 def _doc_line(line):

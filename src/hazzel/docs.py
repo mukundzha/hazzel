@@ -32,7 +32,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
             "/jobs [id|wait id|kill id|clear] — background jobs (wait blocks until done)",
             "/usage — token spend + cost   /usage today|week|month|--by-model|export|clear   /budget — spend warnings (never blocks)",
             "/export [file] — save transcript   /copy [code] — copy reply",
-            "/init [file] — project map   /clear — reset chat   /logout — wipe keys   /exit — quit",
+            "/init [file] — project map   /clear — reset chat   /logout — wipe keys   /exit — quit   /version — version + environment",
             "/mcp — list configured MCP servers/tools   /mcp <server> [<tool>] — inspect or run one",
             "MCP servers live in .hazzel/mcp.json ({\"mcpServers\": {\"name\": {\"command\": ..., \"args\": [...]}}}). Discovery is read-only; calls run third-party code.",
         ],

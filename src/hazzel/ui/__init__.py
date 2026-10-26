@@ -55,7 +55,7 @@ _EXPORTS = {
     "_HELP_FOOT": "help_docs", "_HELP_INTRO": "help_docs", "_HELP_SECTIONS": "help_docs",
     "_STAR_LINE": "help_docs", "_doc_line": "help_docs", "_help_table": "help_docs",
     "_print_help_inline": "help_docs", "_show_help_tab": "help_docs", "_star_line": "help_docs",
-    "show_docs": "help_docs", "show_help": "help_docs",
+    "show_docs": "help_docs", "show_help": "help_docs", "show_version": "help_docs",
 
     "_format_elapsed": "messages", "_format_result_preview": "messages",
     "_PREVIEW_MAX_CHARS": "messages", "_PREVIEW_MAX_LINES": "messages",
@@ -203,6 +203,7 @@ __all__ = [
     "show_star_ask",
     "show_help",
     "show_docs",
+    "show_version",
     "show_usage",
     "show_turn_usage",
     "show_budget_warning",

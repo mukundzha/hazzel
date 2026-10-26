@@ -78,6 +78,7 @@ SLASH_COMMANDS = [
     {"name": "/undo", "desc": "undo last change, keeps your edits [preview]"},
     {"name": "/redo", "desc": "reapply undone change [preview]"},
     {"name": "/logout", "desc": "clear saved API keys"},
+    {"name": "/version", "desc": "show version + environment"},
     {"name": "/exit", "desc": "leave Hazzel"},
 ]
 

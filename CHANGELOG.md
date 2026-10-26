@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - `hazzel -p --output-format json` now emits one JSON error object for missing keys, turn failures, connection failures and cancellations, preserving exit codes and stderr diagnostics. (#34)
+### Added
+- `/version` in-session command: prints Hazzel version, Python version, current provider/model, and config file path, then returns to the prompt. No network, no API key, no config writes. (#36)
 
 ## [1.6.2] - 2026-10-26
 ### Added

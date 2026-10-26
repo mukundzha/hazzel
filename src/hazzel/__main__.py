@@ -375,6 +375,9 @@ def main(argv=None):
         if user_input.strip().lower() in ["/docs", "/doc", "/guide", "docs"]:
             ui.show_docs()
             continue
+        if user_input.strip().lower() == "/version":
+            ui.show_version()
+            continue
         if user_input.strip().lower() in ["/logout", "/signout", "logout"]:
             config.clear_api_keys()
             _last_summary = None

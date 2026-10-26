@@ -145,6 +145,7 @@ Switch anytime with `/model`. Nothing is metered by Hazzel — you pay your prov
 | Cost       | `/usage [today\|week\|month\|--by-model]` · `/budget`                                  |
 | Extend     | `/mcp [server [tool]]` · `/skills [name]` · `/init`                                   |
 | Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/redo` · `/session restore` · `/clear` |
+| Info       | `/version`                                                                                 |
 
 Type `/` to filter live, `@` to attach a file, `/docs` to page the full guide without leaving the terminal — see [docs/EXAMPLES.md](docs/EXAMPLES.md) for worked transcripts.
 
