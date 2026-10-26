@@ -7,6 +7,7 @@ called from ``hazzel -p`` (stdout must stay clean for scripts).
 """
 
 import json
+import os
 import re
 import time
 import urllib.request
@@ -101,6 +102,9 @@ def _fetch_latest(timeout=REQUEST_TIMEOUT):
 
 def check_for_update(now=None, timeout=REQUEST_TIMEOUT, cache_ttl=CACHE_TTL_SECONDS):
     """Return the newer PyPI version string, or None. Never raises."""
+    if os.getenv("HAZZEL_NO_UPDATE_CHECK"):
+        return None
+
     try:
         local = _local_version()
         current = now if isinstance(now, (int, float)) else time.time()

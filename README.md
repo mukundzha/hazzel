@@ -124,6 +124,8 @@ Eight providers, one env var each. Set the one you want and skip the in-app prom
 | OpenRouter | `OPENROUTER_API_KEY` | 100+ models behind one key |
 | Ollama | *(none)* | fully local, keyless, `OLLAMA_HOST` override |
 
+Set `HAZZEL_NO_UPDATE_CHECK=1` to skip the interactive startup PyPI check without reading or writing its cache. Leave it unset or blank to keep the daily check.
+
 Switch anytime with `/model`. Nothing is metered by Hazzel — you pay your provider directly, or nothing at all if you're running local.
 
 ## Commands at a glance

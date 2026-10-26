@@ -4,11 +4,58 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 import hazzel
+import pytest
 from hazzel import config, update_check
 
 
 def _isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "CONFIG_DIR", tmp_path / "cfg")
+    monkeypatch.delenv("HAZZEL_NO_UPDATE_CHECK", raising=False)
+
+
+@pytest.mark.parametrize("value", ["1", "0"])
+def test_nonempty_override_skips_network_and_cache(tmp_path, monkeypatch, value):
+    _isolate(tmp_path, monkeypatch)
+    monkeypatch.setenv("HAZZEL_NO_UPDATE_CHECK", value)
+
+    with (
+        patch.object(
+            update_check, "_read_cache", side_effect=AssertionError("cache read")
+        ) as read_cache,
+        patch.object(
+            update_check, "_write_cache", side_effect=AssertionError("cache write")
+        ) as write_cache,
+        patch.object(
+            update_check, "_fetch_latest", side_effect=AssertionError("network request")
+        ) as fetch_latest,
+    ):
+        assert update_check.check_for_update(now=1000.0) is None
+
+    read_cache.assert_not_called()
+    write_cache.assert_not_called()
+    fetch_latest.assert_not_called()
+    assert not config.CONFIG_DIR.exists()
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_unset_or_blank_override_keeps_update_check(tmp_path, monkeypatch, value):
+    _isolate(tmp_path, monkeypatch)
+    if value is None:
+        monkeypatch.delenv("HAZZEL_NO_UPDATE_CHECK", raising=False)
+    else:
+        monkeypatch.setenv("HAZZEL_NO_UPDATE_CHECK", value)
+    monkeypatch.setattr(update_check, "_local_version", lambda: "1.5.3")
+
+    with (
+        patch.object(update_check, "_read_cache", return_value=(None, None)) as read_cache,
+        patch.object(update_check, "_write_cache") as write_cache,
+        patch.object(update_check, "_fetch_latest", return_value="1.5.4") as fetch_latest,
+    ):
+        assert update_check.check_for_update(now=1000.0) == "1.5.4"
+
+    read_cache.assert_called_once_with()
+    fetch_latest.assert_called_once_with(timeout=update_check.REQUEST_TIMEOUT)
+    write_cache.assert_called_once_with(1000.0, "1.5.4")
 
 
 def _pypi_resp(version):
