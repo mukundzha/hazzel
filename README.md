@@ -150,8 +150,10 @@ Switch anytime with `/model`. Nothing is metered by Hazzel — you pay your prov
 | Git        | `/status` · `/diff [--staged]` · `/review [--staged]` · `/commit` · `/log`             |
 | Cost       | `/usage [today\|week\|month\|--by-model]` · `/budget`                                  |
 | Extend     | `/mcp [server [tool]]` · `/skills [name]` · `/init`                                   |
-| Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/redo` · `/session save\|list\|restore [name]` · `/clear` |
+| Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/redo` · `/session save\|list\|restore [name]` · `/summary` · `/clear` |
 | Info       | `/version`                                                                                 |
+| Help       | `/help` · `/docs`                                                                          |
+| Session    | `/logout` · `/exit`                                                                        |
 
 Type `/` to filter live, `@` to attach a file, `/docs` to page the full guide without leaving the terminal — see [docs/EXAMPLES.md](docs/EXAMPLES.md) for worked transcripts.
 
