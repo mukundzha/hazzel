@@ -601,18 +601,21 @@ def main(argv=None):
             continue
         if low_in == "mcp" or low_in == "/mcp" or low_in.startswith("/mcp ") or low_in.startswith("mcp "):
             raw = user_input.strip()
-            arg = (raw[4:].strip() if raw.startswith("/") else raw[3:].strip()).strip("\"'")
-            if not arg or arg.lower() in ("list", "ls", "servers"):
-                _last_response = agent.run_tool("mcp", {"action": "list"})
+            arg = raw[4:].strip() if raw.startswith("/") else raw[3:].strip()
+            from hazzel.mcp import mcp_command_args
+
+            command_args = {}
+            try:
+                command_args = mcp_command_args(arg)
+            except ValueError as error:
+                _last_response = str(error)
             else:
-                parts = arg.split()
-                server = parts[0]
-                tool = parts[1] if len(parts) > 1 else ""
-                if not tool:
-                    _last_response = agent.run_tool("mcp", {"action": "list", "server": server})
-                else:
-                    _last_response = agent.run_tool("mcp", {"action": "call", "server": server, "tool": tool, "arguments": {}})
-            ui.show_hazzel_message(_last_response)
+                _last_response = agent.run_tool("mcp", command_args)
+            if command_args.get("action") in ("list_prompts", "get_prompt"):
+                # Preserve message boundaries, whitespace and literal remote text.
+                console.print(_last_response, markup=False, highlight=False)
+            else:
+                ui.show_hazzel_message(_last_response)
             continue
         if low_in == "jobs" or low_in == "/jobs" or low_in.startswith("/jobs ") or low_in.startswith("jobs "):
             raw = user_input.strip()

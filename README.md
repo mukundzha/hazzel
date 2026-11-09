@@ -149,13 +149,30 @@ Switch anytime with `/model`. Nothing is metered by Hazzel — you pay your prov
 | Modes      | `/model` · `/plan on\|off` · `/think on\|off` · `/goal [@objective]` · `/allow`        |
 | Git        | `/status` · `/diff [--staged]` · `/review [--staged]` · `/commit` · `/log`             |
 | Cost       | `/usage [today\|week\|month\|--by-model]` · `/budget`                                  |
-| Extend     | `/mcp [server [tool]]` · `/skills [name]` · `/init`                                   |
+| Extend     | `/mcp [server [tool]]` · `/mcp prompts <server> [name [JSON arguments]]` · `/skills [name]` · `/init`                                   |
 | Transcript | `/export` · `/copy` · `/retry` · `/jobs` · `/undo [n]` · `/redo` · `/session save\|list\|restore [name]` · `/summary` · `/clear` |
 | Info       | `/version`                                                                                 |
 | Help       | `/help` · `/docs`                                                                          |
 | Session    | `/logout` · `/exit`                                                                        |
 
 Type `/` to filter live, `@` to attach a file, `/docs` to page the full guide without leaving the terminal — see [docs/EXAMPLES.md](docs/EXAMPLES.md) for worked transcripts.
+
+### MCP prompt templates
+
+Use `/mcp prompts <server>` to list a configured stdio server's prompt templates.
+Required argument names end in `*`. Retrieve one with string-valued JSON arguments:
+
+```text
+/mcp prompts demo review {"code": "print(1)", "language": "Python"}
+```
+
+This displays the returned user/assistant messages; it does not append them to the
+conversation or execute them. Text and embedded text resources are displayed,
+images and binary resources are omitted, and output is size-capped. Lists read
+only the first page, capped at 64 templates and 32 arguments per template.
+The `mcp` tool also accepts `list_prompts` and `get_prompt` with `server`,
+`prompt` and string-valued `arguments`. A server without these methods is
+distinguished from an unknown prompt or missing required arguments.
 
 ## What it's honest about not being
 

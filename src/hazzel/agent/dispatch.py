@@ -121,6 +121,8 @@ def _tool_detail(tool_name, arguments):
         action = str(arguments.get("action", "") or "list").strip() or "list"
         server = str(arguments.get("server", "") or "").strip()
         tool = str(arguments.get("tool", "") or "").strip()
+        if action.lower() == "get_prompt":
+            tool = str(arguments.get("prompt", "") or "").strip()
         detail = action
         if server:
             detail += f" {server}"
@@ -382,8 +384,9 @@ def _coerce_tool_args(tool_name, arguments):
                 if isinstance(args.get(k), dict):
                     args["arguments"] = args[k]
                     break
-        if not isinstance(args.get("arguments"), dict):
-            args["arguments"] = {}
+        if str(args.get("action", "")).strip().lower() != "get_prompt":
+            if not isinstance(args.get("arguments"), dict):
+                args["arguments"] = {}
     elif tool_name in ("write_file", "edit_file") and "path" not in args:
         for k in ("file", "filename", "filepath", "target"):
             if args.get(k) is not None:
@@ -550,7 +553,13 @@ def run_tool(tool_name, arguments):
             uri = arguments.get("uri", "")
             if not isinstance(uri, str):
                 uri = ""
-            return _mcp.mcp_tool(action, server, tool, call_args, uri)
+            prompt = arguments.get("prompt", "")
+            if not isinstance(prompt, str):
+                prompt = ""
+            if action.strip().lower() == "get_prompt":
+                # Do not coerce malformed prompt arguments into an empty request.
+                call_args = arguments.get("arguments", {})
+            return _mcp.mcp_tool(action, server, tool, call_args, uri, prompt)
         return f"Unknown tool: {tool_name}. Valid tools: {', '.join(sorted(TOOL_NAMES))}."
     except KeyboardInterrupt:
         raise
