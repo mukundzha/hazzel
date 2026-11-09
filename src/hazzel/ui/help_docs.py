@@ -35,7 +35,7 @@ _HELP_SECTIONS = [
         ("/copy", "copy last reply [code]"),
         ("/init", "generate AGENTS.md map"),
         ("/skills", "pick + attach a skill"),
-        ("/mcp", "list + use MCP servers"),
+        ("/mcp", "MCP tools, resources + prompts"),
         ("/retry", "re-run last message"),
         ("/jobs", "background jobs [id|wait id|kill id|clear]"),
         ("/usage", "show token usage"),

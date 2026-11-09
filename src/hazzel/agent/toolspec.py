@@ -200,8 +200,8 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "mcp",
-            "description": "Use configured external MCP servers. list discovers servers/tools (read-only); list_resources lists a server's resources and read_resource reads one resource's text (both read-only); call runs one server tool. Configure in .hazzel/mcp.json.",
-            "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "server": {"type": "string"}, "tool": {"type": "string"}, "arguments": {"type": "object"}, "uri": {"type": "string"}}},
+            "description": "Use configured external MCP servers. list discovers servers/tools (read-only); list_resources lists a server's resources and read_resource reads one resource's text; list_prompts lists templates and get_prompt retrieves one with prompt=<name> and string arguments (all read-only); call runs one server tool. Configure in .hazzel/mcp.json.",
+            "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "server": {"type": "string"}, "tool": {"type": "string"}, "arguments": {"type": "object"}, "uri": {"type": "string"}, "prompt": {"type": "string"}}},
         },
     },
 ]

@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - `hazzel -p --output-format json` now emits one JSON error object for missing keys, turn failures, connection failures and cancellations, preserving exit codes and stderr diagnostics. (#34)
 ### Added
+- MCP prompt templates over stdio: bounded discovery and message retrieval, string arguments, and `/mcp prompts <server> [name [JSON arguments]]`. Unsupported methods and invalid prompt arguments remain distinct. (#49)
 - README "Commands at a glance" now lists every slash command: `/help`, `/docs`, `/summary`, `/logout` and `/exit` join the table. (#43)
 - MCP resources: `mcp(action=list_resources, server=<name>)` lists a server's resources (name, URI, MIME type, capped) and `mcp(action=read_resource, server=<name>, uri=<uri>)` reads one resource's text (size-capped, text/blob blocks handled). Stdio only; servers without resource support get a clear method-not-found message. (#31)
 - Windows REPL input now offers the same `/` command palette and `@` file/skill completion as Unix: arrows move through candidates, Enter completes a slash command, and Tab or Enter completes a mention. (#5)

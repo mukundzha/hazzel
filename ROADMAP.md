@@ -23,7 +23,7 @@ contributors can see how past work was scoped — active work is below.
 | Feature | Why | Status |
 |---|---|---|
 | Named sessions | Single last-session slot is limiting — name, list, and resume multiple sessions per project. | Planned — [good first issue](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
-| Richer MCP coverage | Resources/prompts plus SSE/streamable-HTTP transports beyond stdio. | Planned — [good first issue](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
+| Richer MCP coverage | Resources and prompts over stdio shipped; SSE/streamable-HTTP transports remain. | Partially shipped — [good first issue](https://github.com/mukundzha/hazzel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) |
 | Windows polish | Path handling, pager, and clipboard gaps on native Windows. | Planned — help wanted |
 | `hazzel -p` scripting | Pipe diffs in, get summaries out — JSON output + exit codes for CI. | In progress (`-p` + `--output-format json` shipped; richer CI recipes coming) |
 
