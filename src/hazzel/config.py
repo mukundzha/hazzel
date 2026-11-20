@@ -525,6 +525,20 @@ def resolve_project_path(path):
     return path
 
 
+def _strip_inline_comment(value):
+    """Drop a ` # comment` suffix, keeping `#` inside quotes."""
+    quote = None
+    for i, char in enumerate(value):
+        if quote is not None:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "#" and i > 0 and value[i - 1] in (" ", "\t"):
+            return value[:i].rstrip()
+    return value
+
+
 def _load_dotenv():
     path = PROJECT_ROOT / ".env"
     try:
@@ -540,7 +554,7 @@ def _load_dotenv():
         key = key.strip()
         if key not in allowed or os.getenv(key):
             continue
-        value = value.strip().strip("'\"").strip()
+        value = _strip_inline_comment(value.strip()).strip("'\"").strip()
         if value:
             os.environ[key] = value
 
