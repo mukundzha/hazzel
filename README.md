@@ -33,7 +33,7 @@ Every agent claims transparency. Hazzel is ~10k lines of Python you can trace en
 ```bash
 uvx hazzel                  # try it — nothing installed, no venv touched (or: pipx run hazzel)
 pip install hazzel          # to keep it (or: uv tool install hazzel · pipx install hazzel)
-export GROQ_API_KEY="..."   # or skip this and pick a provider inside with /model
+export GROQ_API_KEY="..."   # or skip this and pick a provider inside with /model, or set it in a .env file
 cd your-project
 hazzel
 ```
